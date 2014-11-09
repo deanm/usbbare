@@ -29,6 +29,13 @@ function forAsyncEachLine(stream, line_callback, eof_callback) {
   });
 }
 
+function octets_to_hex_string(octets) {
+  return octets.map(function(x) {
+    var str = x.toString(16);
+    return str.length === 1 ? "0" + str : str;
+  }).join(' ');
+}
+
 function process_file(filename) {
   var fs = require('fs');
   var f = fs.createReadStream(filename, {encoding: 'utf8'});
@@ -38,6 +45,8 @@ function process_file(filename) {
     console.log("Control transfer: addr: " + addr + " endpoint: " + endp);
     var bRequest = setup.get_value("bRequest");
     console.log(setup.debug_string("  "));
+    if (data.length > 0) console.log('    Data: ' + octets_to_hex_string(data));
+    return;
 
     switch (bRequest) {
       case 6: // GET_DESCRIPTOR
