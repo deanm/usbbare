@@ -6,6 +6,17 @@ enum {
 } RequestTypeRecipient;
 
 enum {
+  DEVICE = 1;
+  CONFIGURATION = 2;
+  STRING = 3;
+  INTERFACE = 4;
+  ENDPOINT = 5;
+  DEVICE_QUALIFIER = 6;
+  OTHER_SPEED_CONFIGURATION = 7;
+  INTERFACE_POWER = 8;
+} DescriptorTypes;
+
+enum {
   Standard;
   Class;
   Vendor;

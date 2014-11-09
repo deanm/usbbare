@@ -39,9 +39,10 @@ function fields_display(fields, prefix) {
 }
 
 
-function state_expect_ack_next(next) {
+function state_expect_ack_next(next, cb) {
   return function(pp) {
     if (pp.pid_type !== 2 || pp.pid_name !== 0) throw JSON.stringify(pp);
+    if (cb !== undefined && cb !== null) cb(pp);
     return next;
   };
 }
@@ -68,8 +69,14 @@ function state_ct_setup1(addr, endp, emit) {  // Expecting data0 packet
     if (rp.length !== 11) throw JSON.stringify(pp);  // Should be 8 byte data packet.
     var fields = [ ];
     structs.parse_setup(fields, rp, 1, rp.length);
-    var num_bytes = fields[19];
-    var device_to_host = fields[7];
+    console.log(fields_display(fields, "  "));
+    var num_bytes = field_get_value(fields, "wLength");  // fields[19];
+    var device_to_host = field_get_value(fields, "bRequest");  // fields[7];
+    if (num_bytes === 0) {  // No data stage.
+      var next_state = device_to_host ? state_ct_status0_in : state_ct_status0_out;
+      return state_expect_ack_next(next_state(addr, endp, fields, [ ], emit));
+    }
+
     var next_state = device_to_host ? state_ct_data0_in : state_ct_data0_out;
     return state_expect_ack_next(next_state(addr, endp, fields, [ ], num_bytes, emit));
   };
@@ -132,20 +139,34 @@ function state_ct_status1_in(addr, endp, setup, data, emit) {  // H 0 len data0
     // FIXME: Is it supposed to be just DATA0, or also DATA1 ?
     if (pp.pid_type !== 3 || (pp.pid_name !== 0 && pp.pid_name !== 2)) throw JSON.stringify(pp);
     if (pp.data_len !== 0) throw JSON.stringify(pp);
-    emit(addr, endp, setup, data)
-    return state_initial;
+    return state_expect_ack_next(state_initial, function(pp) {
+      emit(addr, endp, setup, data);
+    });
   };
 }
 
 function emit_ct(addr, endp, setup, data) {
   console.log("Control transfer: addr: " + addr + " endpoint: " + endp);
+  var bRequest = field_get_value(setup, "bRequest");
   console.log(fields_display(setup, "  "));
-  //console.log("  " + field_get_display(setup, "bRequest"));
-  //console.log(["emit", addr, endp, setup, data]);
+
+  switch (bRequest) {
+    case 6: // GET_DESCRIPTOR
+      var wvalue = field_get_value(setup, "wValue");
+      var desctype = wvalue >> 8, descidx = wvalue & 0xff;
+      console.log(desctype);
+      console.log(structs.eDescriptorTypes[desctype]);
+      console.log(data);
+      break;
+    default:
+      console.log("Unknown bRequest: " + bRequest);
+      break;
+  }
 }
 
 function state_initial(pp) {
   if (pp.pid_type === 1 && pp.pid_name === 3) {
+    console.log('setup');
     return state_ct_setup1(pp.ADDR, pp.EndPoint, emit_ct);
   }
 
