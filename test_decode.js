@@ -1,26 +1,174 @@
 var structs = require('./structs.js');
 var decoder = require('./packet_decoder.js');
 
-var next_data_is_setup = false;
-function process_packet(packet) {
+function field_get_value(fields, name) {
+  for (var i = 0, il = fields.length; i < il; i += 3) {
+    if (fields[i] === name) return fields[i+1];
+  }
+  return null;
+}
 
-  var fields = [ ];
-  var res = decoder.decode_packet(packet);
+function field_get_value_str(fields, name) {
+  for (var i = 0, il = fields.length; i < il; i += 3) {
+    if (fields[i] === name) return fields[i+2];
+  }
+  return null;
+}
 
-  if (res.error !== null) throw res.error;
+function field_get_display(fields, name) {
+  for (var i = 0, il = fields.length; i < il; i += 3) {
+    if (fields[i] === name) {
+      var display = "0x" + fields[i+1].toString(16);
+      if (fields[i+2] !== null)
+        display += " (" + fields[i+2] + ")";
+      return display;
+    }
+  }
+  return undefined;
+  return null;
+}
 
-  if (res.pid_type === 1 && res.pid_name === 3) next_data_is_setup = true;
+function fields_display(fields, prefix) {
+  var ftext = "";
+  for (var i = 0, il = fields.length; i < il; i += 3) {
+    if (i !== 0) ftext += "\n";
+    ftext += prefix + fields[i] + ': 0x' + fields[i+1].toString(16);
+    if (fields[i+2] !== null) ftext += ' (' + fields[i+2] + ')';
+  }
+  return ftext;
+}
 
-  if (res.pid_type === 3 && next_data_is_setup === true) {
-    structs.parse_setup(fields, packet, 1, packet.length-2);
-    next_data_is_setup = false;
+
+function state_expect_ack_next(next) {
+  return function(pp) {
+    if (pp.pid_type !== 2 || pp.pid_name !== 0) throw JSON.stringify(pp);
+    return next;
+  };
+}
+
+function state_expect_ack(pp) {
+  if (pp.pid_type !== 2 || pp.pid_name !== 0) throw JSON.stringify(pp);
+  return state_initial;
+}
+
+// - Control Transfers
+//   - Setup stage (setup, data0, ~ack)
+//   - Data stage (amount determined by setup stage)
+//     either: IN:  (in, ~data, ack)
+//             OUT: (out, data, ~ack/nak/stall)
+//     - can stall (error) or NAK (not ready)
+//   - Status stage
+//     IN:  out, 0 len data0, ~ack
+//     OUT:  in, ~0 len data0, ack
+
+// Expect setup token -> data0 -> ack
+function state_ct_setup1(addr, endp, emit) {  // Expecting data0 packet
+  return function(pp, rp) {
+    if (pp.pid_type !== 3 || pp.pid_name !== 0) throw JSON.stringify(pp);
+    if (rp.length !== 11) throw JSON.stringify(pp);  // Should be 8 byte data packet.
+    var fields = [ ];
+    structs.parse_setup(fields, rp, 1, rp.length);
+    var num_bytes = fields[19];
+    var device_to_host = fields[7];
+    var next_state = device_to_host ? state_ct_data0_in : state_ct_data0_out;
+    return state_expect_ack_next(next_state(addr, endp, fields, [ ], num_bytes, emit));
+  };
+}
+
+function state_ct_data0_in(addr, endp, setup, data, num_bytes, emit) {
+  var self = function(pp) {
+    // Looking for a token IN, if not stay in state.
+    if (pp.pid_type !== 1 || pp.pid_name !== 2) return null;
+    if (pp.ADDR !== addr || pp.EndPoint !== endp) return null;
+    return state_ct_data1_in(addr, endp, setup, data, num_bytes, self, emit);
+  };
+  return self;
+}
+
+function state_ct_data0_out(addr, endp, setup, data, num_bytes, emit) {
+  var self = function(pp) {
+    // Looking for a token OUT, if not stay in state.
+    if (pp.pid_type !== 1 || pp.pid_name !== 0) return null;
+    if (pp.ADDR !== addr || pp.EndPoint !== endp) return null;
+    return state_ct_data1_out(addr, endp, setup, data, num_bytes, self, emit);
+  };
+  return self;
+}
+
+function state_ct_data1_in(addr, endp, setup, data, num_bytes, revert_state, emit) {
+  return function(pp, rp) {
+    if (pp.pid_type === 2) {  // Handshake
+      if (pp.pid_name === 2) return revert_state;  // NAK, go back to state, try again.
+      throw "xx, stall?";
+    }
+
+    if (pp.pid_type === 3) {  // Data
+      var dlen = rp.length - 3;
+      if (dlen > num_bytes) throw "xx";
+      console.log(rp);
+      data = data.concat(rp.slice(2, rp.length - 2));
+      num_bytes -= dlen;
+      if (num_bytes > 0)
+        return state_expect_act_next(state_ct_data0_in(addr, endp, setup, data, num_bytes, emit));
+      return state_expect_ack_next(state_ct_status0_in(addr, endp, setup, data, emit));
+    }
+
+    throw JSON.stringify(pp);
+  };
+}
+
+// IN status stage: H out -> H 0 len data0 -> D ack/stall/nak
+function state_ct_status0_in(addr, endp, setup, data, emit) {  // H out
+  return function(pp) {
+    // Looking for a token OUT, if not stay in state.
+    if (pp.pid_type !== 1 || pp.pid_name !== 0) return null;
+    if (pp.ADDR !== addr || pp.EndPoint !== endp) return null;
+    return state_ct_status1_in(addr, endp, setup, data, emit);
+  };
+}
+
+function state_ct_status1_in(addr, endp, setup, data, emit) {  // H 0 len data0
+  return function(pp) {  // Expect a zero length data.
+    // FIXME: Is it supposed to be just DATA0, or also DATA1 ?
+    if (pp.pid_type !== 3 || (pp.pid_name !== 0 && pp.pid_name !== 2)) throw JSON.stringify(pp);
+    if (pp.data_len !== 0) throw JSON.stringify(pp);
+    emit(addr, endp, setup, data)
+    return state_initial;
+  };
+}
+
+function emit_ct(addr, endp, setup, data) {
+  console.log("Control transfer: addr: " + addr + " endpoint: " + endp);
+  console.log(fields_display(setup, "  "));
+  //console.log("  " + field_get_display(setup, "bRequest"));
+  //console.log(["emit", addr, endp, setup, data]);
+}
+
+function state_initial(pp) {
+  if (pp.pid_type === 1 && pp.pid_name === 3) {
+    return state_ct_setup1(pp.ADDR, pp.EndPoint, emit_ct);
   }
 
-  console.log(res);
-  for (var i = 0, il = fields.length; i < il; i += 3) {
-    var ftext = '  ' + fields[i] + ': 0x' + fields[i+1].toString(16);
-    if (fields[i+2] !== null) ftext += ' (' + fields[i+2] + ')';
-    console.log(ftext);
+  return state_initial;
+}
+
+var cur_state = state_initial;
+
+function process_packet(rp) {
+
+  var fields = [ ];
+
+  // rp: raw packet, pp: parsed packet
+  var pp = decoder.decode_packet(rp);
+
+  if (pp.error !== null) throw pp.error;
+
+  if (pp.pid_type === 1 && pp.pid_name === 1) return;  // Ignore SOF
+
+  var next_state = cur_state(pp, rp);
+  if (next_state !== null) {
+    //console.log(pp);
+    cur_state = next_state;
   }
 }
 
