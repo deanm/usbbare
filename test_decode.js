@@ -69,7 +69,7 @@ function state_ct_setup1(addr, endp, emit) {  // Expecting data0 packet
     if (rp.length !== 11) throw JSON.stringify(pp);  // Should be 8 byte data packet.
     var fields = [ ];
     structs.parse_setup(fields, rp, 1, rp.length);
-    console.log(fields_display(fields, "  "));
+    //console.log(fields_display(fields, "  "));
     var num_bytes = field_get_value(fields, "wLength");  // fields[19];
     var device_to_host = field_get_value(fields, "bRequest");  // fields[7];
     if (num_bytes === 0) {  // No data stage.
@@ -113,7 +113,7 @@ function state_ct_data1_in(addr, endp, setup, data, num_bytes, revert_state, emi
       var dlen = rp.length - 3;
       if (dlen > num_bytes) throw "xx";
       console.log(rp);
-      data = data.concat(rp.slice(2, rp.length - 2));
+      data = data.concat(rp.slice(1, rp.length - 2));
       num_bytes -= dlen;
       if (num_bytes > 0)
         return state_expect_act_next(state_ct_data0_in(addr, endp, setup, data, num_bytes, emit));
@@ -166,7 +166,6 @@ function emit_ct(addr, endp, setup, data) {
 
 function state_initial(pp) {
   if (pp.pid_type === 1 && pp.pid_name === 3) {
-    console.log('setup');
     return state_ct_setup1(pp.ADDR, pp.EndPoint, emit_ct);
   }
 
