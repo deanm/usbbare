@@ -4,44 +4,6 @@ var decoder = require('./packet_decoder.js');
 var kStateDone = { };
 var kStateSame = { };
 
-function field_get_value(fields, name) {
-  for (var i = 0, il = fields.length; i < il; i += 3) {
-    if (fields[i] === name) return fields[i+1];
-  }
-  return null;
-}
-
-function field_get_value_str(fields, name) {
-  for (var i = 0, il = fields.length; i < il; i += 3) {
-    if (fields[i] === name) return fields[i+2];
-  }
-  return null;
-}
-
-function field_get_display(fields, name) {
-  for (var i = 0, il = fields.length; i < il; i += 3) {
-    if (fields[i] === name) {
-      var display = "0x" + fields[i+1].toString(16);
-      if (fields[i+2] !== null)
-        display += " (" + fields[i+2] + ")";
-      return display;
-    }
-  }
-  return undefined;
-  return null;
-}
-
-function fields_display(fields, prefix) {
-  var ftext = "";
-  for (var i = 0, il = fields.length; i < il; i += 3) {
-    if (i !== 0) ftext += "\n";
-    ftext += prefix + fields[i] + ': 0x' + fields[i+1].toString(16);
-    if (fields[i+2] !== null) ftext += ' (' + fields[i+2] + ')';
-  }
-  return ftext;
-}
-
-
 function state_wait_for_ack_next(revert, next, cb) {
   return function(pp) {
     if (pp.pid_type !== 2 || pp.pid_name !== 0) return revert;
@@ -78,11 +40,11 @@ function state_ct_setup1(addr, endp, emit) {  // Expecting data0 packet
   return function(pp, rp) {
     if (pp.pid_type !== 3 || pp.pid_name !== 0) throw JSON.stringify(pp);
     if (rp.length !== 11) throw JSON.stringify(pp);  // Should be 8 byte data packet.
-    var fields = [ ];
+    var fields = new structs.Fields();
     structs.parse_setup(fields, rp, 1, rp.length);
     //console.log(fields_display(fields, "  "));
-    var num_bytes = field_get_value(fields, "wLength");  // fields[19];
-    var device_to_host = field_get_value(fields, "bmRequestType.transferDirection");  // fields[7];
+    var num_bytes = fields.get_value("wLength");  // fields[19];
+    var device_to_host = fields.get_value("bmRequestType.transferDirection");  // fields[7];
     if (num_bytes === 0) {  // No data stage.
       var next_state = device_to_host ? state_ct_status0_in : state_ct_status0_out;
       return state_expect_ack_next(next_state(addr, endp, fields, [ ], emit));
@@ -185,7 +147,7 @@ function TransferMachine() {
   function emit_ct_xxx(addr, endp, setup, data) {
     console.log("Control transfer: addr: " + addr + " endpoint: " + endp);
     var bRequest = field_get_value(setup, "bRequest");
-    console.log(fields_display(setup, "  "));
+    console.log(setup.debug_string("  "));
 
     switch (bRequest) {
       case 6: // GET_DESCRIPTOR
@@ -217,8 +179,6 @@ function TransferMachine() {
   var cur_state = state_initial;
 
   this.process_packet = function(rp) {
-    var fields = [ ];
-
     // rp: raw packet, pp: parsed packet
     var pp = decoder.decode_packet(rp);
 

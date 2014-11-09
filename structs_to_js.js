@@ -95,7 +95,8 @@ function generate_struct_code(s) {
     var namelookup = 'null';
     if (n.enum_name !== undefined)
       namelookup = 'e' + n.enum_name + '[val]';
-    code += '  val = r & 0x' + mask.toString(16) + '; f.push("' + n.name + '", val, ' + namelookup + ');\n';
+    code += '  val = r & 0x' + mask.toString(16) + '; ' +
+      'f.add_field("' + n.name + '", ' + n.size + ', val, ' + namelookup + ');\n';
     code += '  r >>= ' + n.size + ';\n';
     bits_in_r -= n.size;
   }
@@ -103,6 +104,36 @@ function generate_struct_code(s) {
 
   return code;
 }
+
+console.log(
+  "function Fields() {\n" +
+  "  var fields = [ ];\n" +
+  "  this.add_field = function(name, size, val, display) {\n" +
+  "    fields.push(name, size, val, display);\n" +
+  "  };\n" +
+  "  this.get_value = function(name) {\n" +
+  "    for (var i = 0, il = fields.length; i < il; i += 4) {\n" +
+  "      if (fields[i] === name) return fields[i+2];\n" +
+  "    }\n" +
+  "    return undefined;\n" +
+  "  };\n" +
+  "  this.put_on_object = function(obj) {\n" +
+  "    for (var i = 0, il = fields.length; i < il; i += 4) {\n" +
+  "      obj[fields[i]] = fields[i+2];\n" +
+  "    }\n" +
+  "    return undefined;\n" +
+  "  };\n" +
+  "  this.debug_string = function(prefix) {\n" +
+  "    var ftext = '';\n" +
+  "    for (var i = 0, il = fields.length; i < il; i += 4) {\n" +
+  "      if (i !== 0) ftext += '\\n';\n" +
+  "      ftext += prefix + fields[i] + ':' + fields[i+1] + ' 0x' + fields[i+2].toString(16);\n" +
+  "      if (fields[i+3] !== null) ftext += ' (' + fields[i+3] + ')';\n" +
+  "    }\n" +
+  "    return ftext;\n" +
+  "  };\n" +
+  "}\n"
+);
 
 for (var i = 0, il = nodes.length; i < il; ++i) {
   var n = nodes[i];
@@ -120,6 +151,7 @@ for (var i = 0, il = nodes.length; i < il; ++i) {
 }
 
 console.log("try {");
+console.log("  exports.Fields = Fields;");
 for (var i = 0, il = nodes.length; i < il; ++i) {
   var n = nodes[i];
   var prefix = n.node_type === "enum" ? "e" : "parse_";

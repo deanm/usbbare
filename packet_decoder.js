@@ -20,7 +20,7 @@ function decode_packet(packet) {
     return res;
   }
 
-  var fields = [ ];
+  var fields = new structs.Fields();
 
   switch (pid_type) {
     case 0:
@@ -62,9 +62,7 @@ function decode_packet(packet) {
       break;
   }
 
-  for (var i = 0, il = fields.length; i < il; i += 3) {
-    res[fields[i]] = fields[i+1];
-  }
+  fields.put_on_object(res);
 
   return res;
 }

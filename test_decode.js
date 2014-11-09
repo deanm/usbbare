@@ -35,7 +35,22 @@ function process_file(filename) {
   var machine = new transfer_machine.TransferMachine();
 
   machine.OnControlTransfer = function(addr, endp, setup, data) {
-    console.log(['Control Transfer', addr, endp, setup]);
+    console.log("Control transfer: addr: " + addr + " endpoint: " + endp);
+    var bRequest = setup.get_value("bRequest");
+    console.log(setup.debug_string("  "));
+
+    switch (bRequest) {
+      case 6: // GET_DESCRIPTOR
+        var wvalue = setup.get_value("wValue");
+        var desctype = wvalue >> 8, descidx = wvalue & 0xff;
+        console.log(desctype);
+        console.log(structs.eDescriptorTypes[desctype]);
+        console.log(data);
+        break;
+      default:
+        console.log("Unknown bRequest: " + bRequest);
+        break;
+    }
   };
 
   forAsyncEachLine(f, function(line) {
