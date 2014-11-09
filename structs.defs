@@ -1,0 +1,46 @@
+enum {
+  Device;
+  Interface;
+  Endpoint;
+  Other;
+} RequestTypeRecipient;
+
+enum {
+  Standard;
+  Class;
+  Vendor;
+  Reserved;
+} RequestTypeType;
+
+enum {
+  HostToDevice;
+  DeviceToHost;
+} RequestTypeTransferDirection;
+
+struct {
+  RequestTypeRecipient recipient:5;
+  RequestTypeType type:2;
+  RequestTypeTransferDirection transferDirection:1;
+} bmRequestType;
+
+enum {
+  GET_STATUS = 0;
+  CLEAR_FEATURE = 1;
+  SET_FEATURE = 3;
+  SET_ADDRESS = 5;
+  GET_DESCRIPTOR = 6;
+  SET_DESCRIPTOR = 7;
+  GET_CONFIGURATION = 8;
+  SET_CONFIGURATION = 9;
+  GET_INTERFACE = 10;
+  SET_INTERFACE = 11;
+  SYNCH_FRAME = 12;
+} SetupRequestCodes;
+
+struct {
+  bmRequestType bmRequestType:8;
+  SetupRequestCodes bRequest:8;
+  uint wValue:16;
+  uint wIndex:16;
+  uint wLength:16;
+} setup;
