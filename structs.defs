@@ -44,3 +44,14 @@ struct {
   uint wIndex:16;
   uint wLength:16;
 } setup;
+
+struct {
+  uint ADDR:7;
+  uint EndPoint:4;
+  uint CRC5:5;
+} TokenPacket;
+
+struct {
+  uint FrameNumber:11;
+  uint CRC5:5;
+} StartOfFramePacket;
