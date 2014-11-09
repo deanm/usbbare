@@ -39,6 +39,14 @@ function fields_display(fields, prefix) {
 }
 
 
+function state_wait_for_ack_next(revert, next, cb) {
+  return function(pp) {
+    if (pp.pid_type !== 2 || pp.pid_name !== 0) return revert;
+    if (cb !== undefined && cb !== null) cb(pp);
+    return next;
+  };
+}
+
 function state_expect_ack_next(next, cb) {
   return function(pp) {
     if (pp.pid_type !== 2 || pp.pid_name !== 0) throw JSON.stringify(pp);
@@ -71,7 +79,7 @@ function state_ct_setup1(addr, endp, emit) {  // Expecting data0 packet
     structs.parse_setup(fields, rp, 1, rp.length);
     //console.log(fields_display(fields, "  "));
     var num_bytes = field_get_value(fields, "wLength");  // fields[19];
-    var device_to_host = field_get_value(fields, "bRequest");  // fields[7];
+    var device_to_host = field_get_value(fields, "bmRequestType.transferDirection");  // fields[7];
     if (num_bytes === 0) {  // No data stage.
       var next_state = device_to_host ? state_ct_status0_in : state_ct_status0_out;
       return state_expect_ack_next(next_state(addr, endp, fields, [ ], emit));
@@ -134,8 +142,31 @@ function state_ct_status0_in(addr, endp, setup, data, emit) {  // H out
   };
 }
 
+// OUT status stage: H IN -> H 0 len data0 -> D ack/stall/nak
+function state_ct_status0_out(addr, endp, setup, data, emit) {  // H out
+  var self = function(pp) {
+    // Looking for a token IN, if not stay in state.
+    if (pp.pid_type !== 1 || pp.pid_name !== 2) return null;
+    if (pp.ADDR !== addr || pp.EndPoint !== endp) return null;
+    return state_ct_status1_out(self, addr, endp, setup, data, emit);
+  };
+  return self;
+}
+
 function state_ct_status1_in(addr, endp, setup, data, emit) {  // H 0 len data0
   return function(pp) {  // Expect a zero length data.
+    // FIXME: Is it supposed to be just DATA0, or also DATA1 ?
+    if (pp.pid_type !== 3 || (pp.pid_name !== 0 && pp.pid_name !== 2)) throw JSON.stringify(pp);
+    if (pp.data_len !== 0) throw JSON.stringify(pp);
+    return state_expect_ack_next(state_initial, function(pp) {
+      emit(addr, endp, setup, data);
+    });
+  };
+}
+
+function state_ct_status1_out(revert, addr, endp, setup, data, emit) {  // H 0 len data0
+  return function(pp) {  // Expect a zero length data.
+    if (pp.pid_type === 2 && pp.pid_name === 2) return revert;  // NAK
     // FIXME: Is it supposed to be just DATA0, or also DATA1 ?
     if (pp.pid_type !== 3 || (pp.pid_name !== 0 && pp.pid_name !== 2)) throw JSON.stringify(pp);
     if (pp.data_len !== 0) throw JSON.stringify(pp);
