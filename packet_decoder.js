@@ -7,18 +7,6 @@ function decode_packet(packet) {
   // This pid is repeated as the binary complement.
   var pid = packet[0] & 0xf, npid = (~packet[0] >> 4) & 0xf;
 
-  if (pid !== npid) throw 'pid and npid mismatch.';
-
-  // Token packets:
-  //   Sync PID ADDR ENDP CRC5 EOP
-  // Start of Frame Packets:
-  //   Sync PID Frame Number CRC5 EOP
-  // Data packets:
-  //   Sync PID Data CRC16 EOP
-  // Handshake packets:
-  //   Sync PID EOP
-
-  var fields = [ ];
   var pid_type = pid & 0x3;
   var pid_name = pid >> 2;
 
@@ -27,13 +15,24 @@ function decode_packet(packet) {
     pid_name: pid_name,
     error: null};
 
+  if (pid !== npid) {
+    res.error = 'pid and npid mismatch.';
+    return res;
+  }
+
+  var fields = [ ];
+
   switch (pid_type) {
-    case 0:  // Special
+    case 0:
       res.pid_type_str = "Special";
       break;
 
-    case 1:  // Token
-      if (plen != 3) throw "token packet length != 3";
+    // Token packets:
+    //   Sync PID ADDR ENDP CRC5 EOP
+    // Start of Frame Packets:
+    //   Sync PID Frame Number CRC5 EOP
+    case 1:
+      if (plen != 3) { res.error = "token packet length != 3"; return res; }
 
       res.pid_type_str = "Token";
       res.pid_name_str = ["OUT", "SOF", "IN", "SETUP"][pid_name];
@@ -44,12 +43,17 @@ function decode_packet(packet) {
       if (crc !== 6) res.error = "BADCRC5: 0x" + crc.toString(16);
       break;
 
-    case 2:  // Handshake
+    // Handshake packets:
+    //   Sync PID EOP
+    case 2:
+      if (plen != 1) { res.error = "handshake packet length != 3"; return res; }
       res.pid_type_str = "Handshake";
       res.pid_name_str = ["ACK", "NYET", "NAK", "STALL"][pid >> 2];
       break;
 
-    case 3:  // Data
+    // Data packets:
+    //   Sync PID Data CRC16 EOP
+    case 3:
       res.pid_type_str = "Data";
       res.pid_name_str = ["DATA0", "DATA2", "DATA1", "MDATA"][pid >> 2];
       var crc = crclib.crc16(packet, 1);

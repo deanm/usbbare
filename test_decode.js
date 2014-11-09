@@ -7,7 +7,7 @@ function process_packet(packet) {
   var fields = [ ];
   var res = decoder.decode_packet(packet);
 
-  // if (res.error !== null)  ...
+  if (res.error !== null) throw res.error;
 
   if (res.pid_type === 1 && res.pid_name === 3) next_data_is_setup = true;
 
