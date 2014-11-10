@@ -66,7 +66,7 @@ function generate_struct_code(s) {
   var size = calculate_struct_size(s);
   var bytes = bytes_needed_for_bits(size);
   var code = "function parse_" + s.name + "(f, b, s, e) {\n";
-  code += '  if (s + ' + bytes + ' > e) throw "Truncated data";\n';
+  code += '  if (s + ' + bytes + ' > e) return false;\n';
   code += '  var val, r = 0;\n';
   var body = s.body;
   var bits_in_r = 0;
@@ -100,6 +100,7 @@ function generate_struct_code(s) {
     code += '  r >>= ' + n.size + ';\n';
     bits_in_r -= n.size;
   }
+  code += "  return true;\n";
   code += "}\n";
 
   return code;
