@@ -56,7 +56,7 @@ function decode_packet(packet) {
     case 3:
       res.pid_type_str = "Data";
       res.pid_name_str = ["DATA0", "DATA2", "DATA1", "MDATA"][pid >> 2];
-      res.data_len = packet.length - 3;
+      res.data = packet.slice(1, packet.length-2);
       var crc = crclib.crc16(packet, 1);
       if (crc !== 0xb001) res.error = "BADCRC16: 0x" + crc.toString(16);
       break;

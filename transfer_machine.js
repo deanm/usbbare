@@ -121,7 +121,7 @@ function state_ct_status1_in(addr, endp, setup, data, emit) {  // H 0 len data0
   return function(pp) {  // Expect a zero length data.
     // FIXME: Is it supposed to be just DATA0, or also DATA1 ?
     if (pp.pid_type !== 3 || (pp.pid_name !== 0 && pp.pid_name !== 2)) throw JSON.stringify(pp);
-    if (pp.data_len !== 0) throw JSON.stringify(pp);
+    if (pp.data.length !== 0) throw JSON.stringify(pp);
     return state_expect_ack_next(kStateDone, function(pp) {
       emit(addr, endp, setup, data);
     });
@@ -133,7 +133,7 @@ function state_ct_status1_out(revert, addr, endp, setup, data, emit) {  // H 0 l
     if (pp.pid_type === 2 && pp.pid_name === 2) return revert;  // NAK
     // FIXME: Is it supposed to be just DATA0, or also DATA1 ?
     if (pp.pid_type !== 3 || (pp.pid_name !== 0 && pp.pid_name !== 2)) throw JSON.stringify(pp);
-    if (pp.data_len !== 0) throw JSON.stringify(pp);
+    if (pp.data.length !== 0) throw JSON.stringify(pp);
     return state_expect_ack_next(kStateDone, function(pp) {
       emit(addr, endp, setup, data);
     });
