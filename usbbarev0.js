@@ -18,7 +18,9 @@ function make_bit_field_node(name, val, str) {
   return span;
 }
 
+
 function make_field(name, numbits, fields) {
+
   var div = document.createElement('div');
   var title = document.createElement('div');
   var body = document.createElement('div');
@@ -88,29 +90,110 @@ function build_packet_display(n, p) {
   }
 }
 
+function build_packet_line(i) {
+  var p = packets[i];
+  var line = document.createElement('div');
+  line.style.height = kCellHeight + 'px';
+  var n = document.createElement('span');
+  var ts = document.createElement('span');
+  var f = document.createElement('span');
+  var desc = document.createElement('span');
+  n.innerText = i; ts.innerText = p.t;
+  f.innerText = p.f; desc.innerText = decoder.decode_packet_to_display_string(p.d);
+  line.appendChild(n); line.appendChild(ts);
+  line.appendChild(f); line.appendChild(desc);
+  line.packet_num = i;
+  return line;
+}
+
+var kCellHeight = 18;
 function build_packet_list_display(packets) {
+  var num_packets = packets.length;
+
+  var total_height = packets.length * kCellHeight;
+
+  var hole0 = document.createElement('div');
+  hole0.style.backgroundColor = 'blue';
+  hole0.style.height = 0;
+
+  var hole1 = document.createElement('div');
+  hole1.style.backgroundColor = 'red';
+  hole1.style.height = total_height + 'px';
+
   var packet_display_node = document.createElement('div');
   packet_display_node.className = "usbbare-p";
 
   var div = document.createElement('div');
   div.className = "usbbare-pd";
-  for (var i = 0, il = packets.length; i < il; ++i) {
-    var p = packets[i];
-    var line = document.createElement('div');
-    line.addEventListener('click', (function(i, p, line) { return function(e) {
-      build_packet_display(packet_display_node, p);
-      div.insertBefore(packet_display_node, line.nextSibling);
-    };})(i, p, line));
-    var n = document.createElement('span');
-    var ts = document.createElement('span');
-    var f = document.createElement('span');
-    var desc = document.createElement('span');
-    n.innerText = i; ts.innerText = p.t;
-    f.innerText = p.f; desc.innerText = decoder.decode_packet_to_display_string(p.d);
-    line.appendChild(n); line.appendChild(ts);
-    line.appendChild(f); line.appendChild(desc);
-    div.appendChild(line);
+
+  var a = 0;
+  var b = 0;
+
+  function layout() {
+    var body = document.body;
+    var stop = body.scrollTop - div.offsetTop;
+
+    var c = stop / kCellHeight | 0;
+    var d = (stop + body.clientHeight + kCellHeight) / kCellHeight | 0;
+    if (c < 0) c = 0;
+    if (d > num_packets) d = num_packets;
+    if (d < c) d = c;
+
+    while (a < c && a < b) {  // removing elements from the top
+      div.removeChild(hole0.nextSibling);
+      ++a;
+    }
+
+    while (b > d && b > a) {  // removing elements from the bottom
+      --b;
+      div.removeChild(hole1.previousSibling);
+    }
+
+    if (a === b) a = b = c;
+
+    while (a > c) {  // adding elements to the top
+      a--;
+      div.insertBefore(build_packet_line(a), hole0.nextSibling);
+    }
+
+    while (b < d && b < num_packets) {  // adding elements to the bottom
+      div.insertBefore(build_packet_line(b), hole1);
+      ++b;
+    }
+
+    var hole0_height = a * kCellHeight;
+    var hole1_height = total_height - ((b - a) * kCellHeight) - hole0_height;
+    hole0.style.height = hole0_height + 'px';
+    hole1.style.height = hole1_height + 'px';
   }
+
+  document.addEventListener("scroll", function(x) { layout(); });
+  window.addEventListener("resize", function(x) { layout(); });
+  
+  var selected = null;
+
+  div.addEventListener('click', (function() { return function(e) {
+    console.log(e);
+    for (var target = e.target; target !== div; target = target.parentNode) {
+      if (target.packet_num !== undefined) {
+        build_packet_display(packet_display_node, packets[target.packet_num]);
+        packet_display_node.style.top = (target.packet_num * kCellHeight - 5) + 'px';
+        selected = target.packet_num;
+        break;
+      }
+    }
+  };})());
+
+  div.appendChild(packet_display_node);
+  div.appendChild(hole0);
+  div.appendChild(hole1);
+
+  layout();
+  //layout_cd(47, 87);
+  //layout_cd(0, 39)
+  //layout_cd(0, 28)
+  //layout_cd(0, 17);
+
   return div;
 }
 

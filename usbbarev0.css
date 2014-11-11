@@ -1,9 +1,18 @@
 /*
-*/
 @import url(http://fonts.googleapis.com/css?family=Inconsolata);
+*/
 
 div.usbbare-pd {
   font-family: 'Inconsolata', 'Inconsolata-dz', fixed;
+  font-weight: 400;
+}
+
+div.usbbare-pd>div {
+  width: 36em;
+}
+
+div.usbbare-pd>div.selected {
+  background-color: #ddd;
 }
 
 div.usbbare-pd>div>span:first-child {
@@ -33,15 +42,16 @@ div.usbbare-pd>div>span:nth-child(3) {
 
 div.usbbare-pd>div>span:nth-child(4) {
   display: inline-block;
-  width: 20em;
+  width: 18em;
   padding-left: 1em;
 }
 
 div.usbbare-p {
-  margin-top: 1em;
-  margin-bottom: 1em;
   padding-left: 16em;
   margin-left: 7px;
+  position: absolute;
+  top: 0;
+  left: 22em;
 }
 
 span.usbbare-bitfield:hover {
