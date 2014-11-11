@@ -47,6 +47,7 @@ function decode_packet(packet) {
     //   Sync PID Data CRC16 EOP
     case 3:
       res.data = packet.slice(1, packet.length-2);
+      res.CRC16 = packet[plen-1] << 8 | packet[plen-2];
       break;
   }
 
