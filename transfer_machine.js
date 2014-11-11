@@ -1,5 +1,6 @@
 var structs = require('./structs.js');
 var decoder = require('./packet_decoder.js');
+var states = require('./transfer_states.js');
 
 var kStateDone = { };
 var kStateSame = { };
@@ -144,28 +145,9 @@ function state_ct_status1_out(revert, addr, endp, setup, data, emit) {  // H 0 l
 function TransferMachine() {
   var this_ = this;
 
-  function emit_ct_xxx(addr, endp, setup, data) {
-    console.log("Control transfer: addr: " + addr + " endpoint: " + endp);
-    var bRequest = field_get_value(setup, "bRequest");
-    console.log(setup.debug_string("  "));
-
-    switch (bRequest) {
-      case 6: // GET_DESCRIPTOR
-        var wvalue = field_get_value(setup, "wValue");
-        var desctype = wvalue >> 8, descidx = wvalue & 0xff;
-        console.log(desctype);
-        console.log(structs.eDescriptorTypes[desctype]);
-        console.log(data);
-        break;
-      default:
-        console.log("Unknown bRequest: " + bRequest);
-        break;
-    }
-  }
-
-  function emit_ct(addr, endp, setup, data) {
+  function emit_ct(tid, addr, endp, setup, data) {
     if (this_.OnControlTransfer === null) return;
-    this_.OnControlTransfer(addr, endp, setup, data);
+    this_.OnControlTransfer(tid, addr, endp, setup, data);
   }
 
   function state_initial(pp) {
@@ -176,7 +158,9 @@ function TransferMachine() {
     return state_initial;
   }
 
-  var cur_state = state_initial;
+  var cur_state = states.state_start();
+
+  var transaction_id = 0;
 
   this.process_packet = function(rp) {
     // rp: raw packet, pp: parsed packet
@@ -184,13 +168,26 @@ function TransferMachine() {
 
     if (pp.error !== null) throw pp.error;
 
-    if (pp.pid_type === 1 && pp.pid_name === 1) return;  // Ignore SOF
+    if (pp.pid_type === 1 && pp.pid_name === 1) return null;  // Ignore SOF
 
-    var next_state = cur_state(pp, rp);
+    //console.log(pp);
+    var res = cur_state(rp, pp);
+    //console.log(res);
 
-    if (next_state === kStateSame) next_state = cur_state;
-    if (next_state === kStateDone) next_state = state_initial;
-    cur_state = next_state;
+    if (res.emit !== null && res.emit[0] === "ControlTransfer") {
+      emit_ct(transaction_id, res.emit[1], res.emit[2], res.emit[3], res.emit[4]);
+    }
+
+    if (res.next === states.kDone) {
+      transaction_id++;
+      cur_state = states.state_start();
+      return transaction_id-1;
+    } else if (res.next === states.kPass) {
+      return null;
+    }
+
+    cur_state = res.next;
+    return transaction_id;
   };
 
   this.OnControlTransfer = null;
