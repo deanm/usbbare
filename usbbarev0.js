@@ -84,6 +84,73 @@ function flatten(arr, out) {
   }
 }
 
+function build_table_from_fields(f) {
+  var table = document.createElement('table');
+  var n = f.num_fields();
+  for (var i = 0; i < n; ++i) {
+    var tr = document.createElement('tr');
+    var name = f.get_name_at(i) + ":" + f.get_size_at(i);
+    var td0 = document.createElement('td');
+    td0.appendChild(document.createTextNode(name));
+    var td1 = document.createElement('td');
+    td1.appendChild(document.createTextNode(f.get_value_at(i)));
+    td1.style.textAlign = 'right';
+    var display = f.get_display_at(i);
+    var td2 = document.createElement('td');
+    if (display !== null)
+      td2.appendChild(document.createTextNode("(" + display + ")"));
+    tr.appendChild(td0);
+    tr.appendChild(td1);
+    tr.appendChild(td2);
+    table.appendChild(tr);
+  }
+  table.style.marginLeft = "1em";
+  return table;
+}
+
+function disect_config_desc(n, flat_data) {
+  var descriptor = new structs.Fields();
+  if (structs.parse_StandardConfigurationDescriptor(
+      descriptor, flat_data, 0, flat_data.length) === false) {
+    n.appendChild(build_text_div("failed to parse config descriptor", 6, 15));
+    return;
+  }
+
+  n.appendChild(build_text_div("CONFIGURATION", 2));
+  n.appendChild(build_table_from_fields(descriptor));
+
+  var num_interfaces = descriptor.get_value("bNumInterfaces");
+  var tlen = descriptor.get_value("wTotalLength");
+  var pos = 0;
+  tlen -= descriptor.get_value("bLength");
+  pos += descriptor.get_value("bLength");
+
+  for (var i = 0; i < num_interfaces; ++i) {
+    var iface = new structs.Fields();
+    if (structs.parse_StandardInterfaceDescriptor(
+        iface, flat_data, pos, flat_data.length) === false) {
+      n.appendChild(build_text_div("failed to parse interface descriptor", 6, 15));
+      return;
+    }
+    n.appendChild(build_text_div("INTERFACE", 2));
+    n.appendChild(build_table_from_fields(iface));
+    pos += iface.get_value("bLength");
+
+    var num_eps = iface.get_value("bNumEndpoints");
+    for (var j = 0; j < num_eps; ++j) {
+      var ep = new structs.Fields();
+      if (structs.parse_StandardEndpointDescriptor(
+          ep, flat_data, pos, flat_data.length) === false) {
+        n.appendChild(build_text_div("failed to parse endpoint descriptor", 6, 15));
+        return;
+      }
+      n.appendChild(build_text_div("ENDPOINT", 2));
+      n.appendChild(build_table_from_fields(ep));
+      pos += ep.get_value("bLength");
+    }
+  }
+}
+
 function build_transaction_display(n, trans, id) {
   while (n.firstChild) n.removeChild(n.firstChild);
 
@@ -92,7 +159,7 @@ function build_transaction_display(n, trans, id) {
   var addr = trans[0], endp = trans[1], setup = trans[2], data = trans[3];
 
   n.appendChild(build_text_div("Control transfer: addr: " + addr + " endpoint: " + endp, 2));
-  n.appendChild(build_text_div(setup.debug_string("  "), 6, 15));
+  n.appendChild(build_table_from_fields(setup));
 
   var flat_data = [ ];
   if (data !== null) flatten(data, flat_data);
@@ -102,19 +169,17 @@ function build_transaction_display(n, trans, id) {
     case 6: // GET_DESCRIPTOR
       var wvalue = setup.get_value("wValue");
       var desctype = wvalue >> 8, descidx = wvalue & 0xff;
-      n.appendChild(build_text_div(structs.eDescriptorTypes[desctype], 2));
-      var descriptor = new structs.Fields();
-      var parser = null;
-      if (desctype === 1) parser = structs.parse_StandardDeviceDescriptor;
-      if (desctype === 2) parser = structs.parse_StandardConfigurationDescriptor;
-      if (parser !== null) {
-        if (parser(descriptor, flat_data, 0, flat_data.length) === true) {
-          n.appendChild(build_text_div(descriptor.debug_string("    "), 6, 15));
-        } else {
-          n.appendChild(build_text_div("failed to parse", 6, 15));
-        }
+
+      switch (desctype) {
+        case 2:  // config
+          disect_config_desc(n, flat_data);
+          break;
+        default:
+          n.appendChild(build_text_div(structs.eDescriptorTypes[desctype], 2));
+          break;
       }
       break;
+
     default:
       console.log("Unknown bRequest: " + bRequest);
       break;
@@ -143,8 +208,8 @@ function build_packet_display(n, p) {
     [make_bit_field_node("pid_type", d.pid_type + " (" + pid_type_str + ")", to_bin_str(2, d.pid_type)),
      make_bit_field_node("pid_name", d.pid_name + " (" + pid_name_str + ")", to_bin_str(2, d.pid_name))]));
 
-  if (d.pid_type === 1) {  // Token
-    if (d.pid_name === 1) {  // SOF
+  if (d.pid_type === 1 || (d.pid_type === 0 && d.pid_name === 1)) {  // Token
+    if (d.pid_type === 1 && d.pid_name === 1) {  // SOF
       n.appendChild(make_field("FrameNumber", 11,
         [make_bit_field_node("FrameNumber", d.FrameNumber, to_bin_str(11, d.FrameNumber))]));
     } else {

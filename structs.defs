@@ -100,3 +100,65 @@ struct {
   StandardConfigurationDescriptorAttributes bmAttributes:8;
   uint bMaxPower:8;
 } StandardConfigurationDescriptor;
+
+struct {
+  uint bLength:8;
+  uint bDescriptorType:8;
+  uint bInterfaceNumber:8;
+  uint bAlternateSetting:8;
+  uint bNumEndpoints:8;
+  uint bInterfaceClass:8;
+  uint bInterfaceSubClass:8;
+  uint bInterfaceProtocol:8;
+  uint iInterface:8;
+} StandardInterfaceDescriptor;
+
+enum {
+  Control;
+  Isochronous;
+  Bulk;
+  Interrupt;
+} StandardEndpointDescriptorAttributesTransferType;
+
+enum {
+  NoSynchronization;
+  Asynchronous;
+  Adaptive;
+  Synchronous;
+} StandardEndpointDescriptorAttributesSynchronizationType;
+
+enum {
+  DataEndpoint;
+  FeedbackEndpoint;
+  ImplicitFeedbackDataEndpoint;
+  Reserved;
+} StandardEndpointDescriptorAttributesUsageType;
+
+struct {
+  StandardEndpointDescriptorAttributesTransferType TransferType:2;
+  StandardEndpointDescriptorAttributesSynchronizationType SynchronizationType:2;
+  StandardEndpointDescriptorAttributesUsageType UsageType:2;
+  uint Reserved:2;
+} StandardEndpointDescriptorAttributes;
+
+enum {
+  OUT;
+  IN;
+} StandardEndpointDescriptorEndpointAddressDirection;
+
+struct {
+  uint EndpointNumber:4;
+  uint Reserved:3;
+  StandardEndpointDescriptorEndpointAddressDirection Direction:1;  // Ignored for control endpoints.
+} StandardEndpointDescriptorEndpointAddress;
+
+struct {
+  uint bLength:8;
+  uint bDescriptorType:8;
+  StandardEndpointDescriptorEndpointAddress bEndpointAddress:8;
+  StandardEndpointDescriptorAttributes bmAttributes:8;
+  uint wMaxPacketSize:8;
+  uint bInterval:8;
+  uint bLength:8;
+
+} StandardEndpointDescriptor;

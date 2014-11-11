@@ -71,5 +71,23 @@ div.usbbare-tp {
   position: fixed;
   left: 42em;
   height: 40em;
-  width: 30em;
+  width: 35em;
+  overflow: scroll;
+}
+
+div.usbbare-tp table {
+  border-collapse: collapse;
+  margin-bottom: 1em;
+}
+
+div.usbbare-tp td {
+  padding: 0;
+  padding-right: 0.3em;
+  padding-left: 1em;
+  xborder: 1px solid #ddd
+}
+
+div.usbbare-tp td:first-child {
+  padding: 0;
+  padding-right: 1em;
 }
