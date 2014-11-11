@@ -21,7 +21,6 @@ function decode_packet(packet) {
     return res;
   }
 
-
   switch (pid_type) {
     case 0:
       break;
@@ -32,10 +31,14 @@ function decode_packet(packet) {
     //   Sync PID Frame Number CRC5 EOP
     case 1:
       if (plen != 3) { res.error = "token packet length != 3"; return res; }
-      var fields = new structs.Fields();
-      var parser = (pid >> 2 === 1) ? structs.parse_StartOfFramePacket : structs.parse_TokenPacket;
-      parser(fields, packet, 1, packet.length);
-      fields.put_on_object(res);
+      var r = packet[1] | packet[2] << 8;
+      if (pid >> 2 === 1) {  // SOF
+        res.FrameNumber = r & 0x7ff;
+      } else {
+        res.ADDR = r & 0x7f;
+        res.EndPoint = (r >> 7) & 0xf;
+      }
+      res.CRC5 = (res >> 11) & 0x1f;
       break;
 
     // Handshake packets:
