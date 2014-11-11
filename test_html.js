@@ -46,12 +46,13 @@ machine.OnControlTransfer = function(addr, endp, setup, data) {
 };
 
 var decoder = require('./packet_decoder.js');
-console.log('<html><head><link rel="stylesheet" href="usbbarev0.css" /></head><body><table class="usbbare-pd">');
+console.log('<html><head><link rel="stylesheet" href="usbbarev0.css" /></head><body><div id="packets" style="display:none" class="usbbare-pd">');
+console.log('<script>window.onload = function() { document.getElementById("packets").style.display = "block"; };</script>');
 for (var i = 0, il = packets.length; i < il; ++i) {
   var packet = packets[i];
   var desc = decoder.decode_packet_to_display_string(packet.d);
-  console.log('<tr><td>' + i + '</td><td>' + packet.t + '</td><td>' +
-               packet.f + '</td><td>' + desc + '<td></tr>');
+  console.log('<div><span>' + i + '</span><span>' + packet.t + '</span><span>' +
+               packet.f + '</span><span>' + desc + '<span></div>');
   //if (packet.d.length !== 0) machine.process_packet(packet.d);
 }
-console.log('</table></body></html>');
+console.log('</div></body></html>');
