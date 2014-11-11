@@ -1,0 +1,102 @@
+state start {
+  want SETUP {
+    transition ct_setup1 ADDR EndPoint;
+  }
+}
+
+state ct_setup1 : addr, endp {
+  need DATA0 data.length:8 parse:setup {
+    want setup.bmRequestType.transferDirection:0 {
+      transition ct_setup2_out_ack addr endp setup setup.wLength nil;
+    }
+    need setup.bmRequestType.transferDirection:1 {
+      transition ct_setup2_in_ack addr endp setup setup.wLength nil;
+    }
+  }
+}
+
+state ct_setup2_in_ack : addr, endp, setup, bytes_left, bytes {
+  need ACK { transition ct_data0_in addr endp setup bytes_left bytes; }
+}
+
+state ct_setup2_out_ack : addr, endp, setup, bytes_left, bytes  {
+  need ACK { transition ct_data0_out addr endp setup bytes_left bytes; }
+}
+
+state ct_data0_in : addr, endp, setup, bytes_left, bytes {
+  want bytes_left:0 {
+    want OUT ADDR:addr EndPoint:endp { transition ct_status1_in addr endp setup bytes; }
+  }
+
+  want IN ADDR:addr, EndPoint: endp { transition ct_data1_in addr endp setup bytes_left bytes; }
+}
+
+state ct_data0_out : addr, endp, setup, bytes_left, bytes {
+  want bytes_left:0 {
+    want IN ADDR:addr EndPoint:endp { transition ct_status1_out addr endp setup bytes; }
+  }
+
+  want OUT ADDR:addr, EndPoint: endp { transition ct_data1_out addr endp setup bytes_left bytes; }
+}
+
+state ct_data1_in : addr, endp, setup, bytes_left, bytes {
+  want NAK { transition ct_data0_in addr endp setup bytes_left bytes; }
+
+  need pid_type:data {
+    dec bytes_left data.length;
+    append bytes data;
+    transition ct_data1_in_ack addr endp setup bytes_left bytes;
+  }
+}
+
+state ct_data1_out : addr, endp, setup, bytes_left, bytes {
+  want NAK { transition ct_data0_out addr endp setup bytes_left bytes; }
+
+  need pid_type:data {
+    dec bytes_left data.length;
+    append bytes data;
+    transition ct_data1_out_ack addr endp setup bytes_left bytes;
+  }
+}
+
+state ct_data1_in_ack : addr, endp, setup, bytes_left, bytes {
+  need ACK { transition ct_data0_in addr endp setup bytes_left bytes; }
+}
+
+state ct_data1_out_ack : addr, endp, setup, bytes_left, bytes {
+  need ACK { transition ct_data0_out addr endp setup bytes_left bytes; }
+}
+
+state ct_status1_in : addr, endp, setup, bytes {
+  need pid_type:data data.length:0 {
+    transition ct_status1_in_ack addr endp setup bytes;
+  }
+}
+
+state ct_status0_out : addr, endp, setup, bytes {
+  need IN ADDR:addr EndPoint:endp { transition ct_status1_out addr endp setup bytes; }
+}
+
+state ct_status1_out : addr, endp, setup, bytes {
+  want NAK {
+    transition ct_status0_out addr endp setup bytes;
+  }
+
+  need pid_type:data data.length:0 {
+    transition ct_status1_out_ack addr endp setup bytes;
+  }
+}
+
+state ct_status1_in_ack : addr, endp, setup, bytes {
+  want ACK {
+    emit ControlTransfer addr endp setup bytes;
+    done;
+  }
+}
+
+state ct_status1_out_ack : addr, endp, setup, bytes {
+  want ACK {
+    emit ControlTransfer addr endp setup bytes;
+    done;
+  }
+}
