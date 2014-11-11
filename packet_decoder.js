@@ -34,7 +34,7 @@ function decode_packet(packet) {
         res.ADDR = r & 0x7f;
         res.EndPoint = (r >> 7) & 0xf;
       }
-      res.CRC5 = (res >> 11) & 0x1f;
+      res.CRC5 = (r >> 11) & 0x1f;
       break;
 
     // Handshake packets:
