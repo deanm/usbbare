@@ -124,6 +124,21 @@ console.log(
   "    }\n" +
   "    return undefined;\n" +
   "  };\n" +
+  "  this.num_fields = function() {\n" +
+  "    return fields.length >> 2;\n" +
+  "  };\n" +
+  "  this.get_name_at = function(i) {\n" +
+  "    return fields[i << 2];\n" +
+  "  };\n" +
+  "  this.get_size_at = function(i) {\n" +
+  "    return fields[i << 2 | 1];\n" +
+  "  };\n" +
+  "  this.get_value_at = function(i) {\n" +
+  "    return fields[i << 2 | 2];\n" +
+  "  };\n" +
+  "  this.get_display_at = function(i) {\n" +
+  "    return fields[i << 2 | 3];\n" +
+  "  };\n" +
   "  this.debug_string = function(prefix) {\n" +
   "    var ftext = '';\n" +
   "    for (var i = 0, il = fields.length; i < il; i += 4) {\n" +
