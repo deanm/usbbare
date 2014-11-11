@@ -34,7 +34,7 @@ function flatten_body(body, flat, prefix) {
 
     if (n.type!== 'uint') {
       if (structs[n.type] !== undefined) {
-        flatten_body(structs[n.type].body, flat, prefix + n.type + ".");
+        flatten_body(structs[n.type].body, flat, prefix + n.name + ".");
       } else {
         flat.push({name: prefix + n.name, size: n.size, enum_name: n.type});
       }
