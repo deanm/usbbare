@@ -2,8 +2,15 @@ var fs = require('fs');
 var structs = require('./structs.js');
 var transfer_machine = require('./transfer_machine.js');
 
+function roll_up_js(filename) {
+  var src = fs.readFileSync(__dirname + '/' + filename, 'utf8');
+  return src.replace(/require\('(.*?)'\);/g, function(match, p1) {
+    return '(function(exports) {' + roll_up_js(p1) + ' return exports;})({});';
+  });
+}
+
 if (process.argv.length > 2) {
-  eval(fs.readFileSync(process.argv[2], 'utf8'));
+  //eval(fs.readFileSync(process.argv[2], 'utf8'));
 } else {
   console.log("usage: <filename.js>");
   process.exit(1);
@@ -46,13 +53,8 @@ machine.OnControlTransfer = function(addr, endp, setup, data) {
 };
 
 var decoder = require('./packet_decoder.js');
-console.log('<html><head><link rel="stylesheet" href="usbbarev0.css" /></head><body><div id="packets" style="display:none" class="usbbare-pd">');
-console.log('<script>window.onload = function() { document.getElementById("packets").style.display = "block"; };</script>');
-for (var i = 0, il = packets.length; i < il; ++i) {
-  var packet = packets[i];
-  var desc = decoder.decode_packet_to_display_string(packet.d);
-  console.log('<div><span>' + i + '</span><span>' + packet.t + '</span><span>' +
-               packet.f + '</span><span>' + desc + '<span></div>');
-  //if (packet.d.length !== 0) machine.process_packet(packet.d);
-}
-console.log('</div></body></html>');
+console.log('<html><head><style>' + fs.readFileSync(__dirname + '/usbbarev0.css', 'utf8'));
+console.log('</style><script>');
+console.log(fs.readFileSync(process.argv[2], 'utf8'));
+console.log('</script><script>' + roll_up_js('/usbbarev0.js'));
+console.log('</script><body></body></html>');
