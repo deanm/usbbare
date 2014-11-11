@@ -1,20 +1,15 @@
 // http://www.michael-joost.de/crc5check.pdf
-// TODO(deanm): Combine tables, should simplify and drop the shifts.
-var kCrc5Table4 = new Uint8Array([
+var kCrc5Table = new Uint8Array([
   0x00, 0x0E, 0x1C, 0x12, 0x11, 0x1F, 0x0D, 0x03,
-  0x0B, 0x05, 0x17, 0x19, 0x1A, 0x14, 0x06, 0x08
-]);
-var kCrc5Table0 = new Uint8Array([
+  0x0B, 0x05, 0x17, 0x19, 0x1A, 0x14, 0x06, 0x08,
   0x00, 0x16, 0x05, 0x13, 0x0A, 0x1C, 0x0F, 0x19,
   0x14, 0x02, 0x11, 0x07, 0x1E, 0x08, 0x1B, 0x0D
 ]);
 
-// NOTE: the crc5 is unrolled for just processing 16-bits of data, which is the
-// only size you need for usb messages.
 function crc5_16bit(byte0, byte1) {  // Correct CRC should return 0x06
   var b = byte0 ^ 0x1F;
-  b = byte1 ^ (kCrc5Table4[b & 0x0F] ^ kCrc5Table0[(b >> 4) & 0x0F]);
-  return kCrc5Table4[b & 0x0F] ^ kCrc5Table0[(b >> 4) & 0x0F];
+  b = byte1 ^ (kCrc5Table[b & 0x0F] ^ kCrc5Table[b >> 4 | 16]);
+  return kCrc5Table[b & 0x0F] ^ kCrc5Table[b >> 4 | 16];
 }
 
 // CRC16 implementation taken from somewhere floating around, standard table
