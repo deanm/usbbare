@@ -19,6 +19,15 @@ function decode_packet(packet) {
 
   switch (pid_type) {
     case 0:
+      if (pid_name === 1) {  // PING, like a Token packet.
+        if (plen != 3) { res.error = "ping packet length != 3"; return res; }
+        var r = packet[1] | packet[2] << 8;
+        res.ADDR = r & 0x7f;
+        res.EndPoint = (r >> 7) & 0xf;
+        res.CRC5 = (r >> 11) & 0x1f;
+      } else if (pid_name === 2) {
+        if (plen != 4) { res.error = "split packet length != 4"; return res; }
+      }
       break;
 
     // Token packets:
@@ -66,6 +75,11 @@ function decode_packet_to_display_string(packet) {
   switch (pid_type) {
     case 0:
       text = "special " + ["RESERVED", "PING", "SPLIT", "PRE/ERR"][pid_name];
+      if (pid_name === 1) {  // PING
+        text += " ADDR: " + dp.ADDR + " EndPoint: " + dp.EndPoint;
+        var crc = crclib.crc5_16bit(packet[1], packet[2]);
+        if (crc !== 6) text += " ERROR: bad crc5: 0x" + crc.toString(16);
+      }
       break;
 
     // Token packets:
