@@ -1,0 +1,29 @@
+@import url(http://fonts.googleapis.com/css?family=Inconsolata);
+
+table.usbbare-pd {
+  font-family: 'Inconsolata', fixed;
+  border-collapse: collapse;
+}
+
+table.usbbare-pd tr td:first-child {
+  text-align: right;
+  padding-right: 4px;
+  border-right: 1px solid #ddd;
+}
+
+table.usbbare-pd tr td:nth-child(2) {
+  text-align: right;
+  padding-right: 4px;
+  border-right: 1px solid #ddd;
+}
+
+table.usbbare-pd tr td:nth-child(3) {
+  padding-left: 10px;
+  text-align: right;
+  padding-right: 4px;
+  border-right: 1px solid #ddd;
+}
+
+table.usbbare-pd tr td:nth-child(4) {
+  padding-left: 10px;
+}
