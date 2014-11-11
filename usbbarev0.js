@@ -53,7 +53,7 @@ function build_text_div(str, bp, lp) {
 }
 
 var kPidNameTable =  [
-  "", "", "", "",
+  "RESERVED", "PING", "SPLIT", "PRE/ERR",
   "OUT", "SOF", "IN", "SETUP",
   "ACK", "NYET", "NAK", "STALL",
   "DATA0", "DATA2", "DATA1", "MDATA"
