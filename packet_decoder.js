@@ -1,4 +1,3 @@
-var structs = require('./structs.js');
 var crclib  = require('./crc.js');
 
 function decode_packet(packet) {
@@ -8,6 +7,8 @@ function decode_packet(packet) {
   // This pid is repeated as the binary complement.
   var pid = packet[0] & 0xf, npid = (~packet[0] >> 4) & 0xf;
 
+  if (pid !== npid) return {error: 'pid and npid mismatch.'};
+
   var pid_type = pid & 0x3, pid_name = pid >> 2;
 
   var res = {
@@ -15,11 +16,6 @@ function decode_packet(packet) {
     pid_name: pid_name,
     data:     null,
     error:    null};
-
-  if (pid !== npid) {
-    res.error = 'pid and npid mismatch.';
-    return res;
-  }
 
   switch (pid_type) {
     case 0:
@@ -32,7 +28,7 @@ function decode_packet(packet) {
     case 1:
       if (plen != 3) { res.error = "token packet length != 3"; return res; }
       var r = packet[1] | packet[2] << 8;
-      if (pid >> 2 === 1) {  // SOF
+      if (pid_name === 1) {  // SOF
         res.FrameNumber = r & 0x7ff;
       } else {
         res.ADDR = r & 0x7f;
@@ -59,16 +55,13 @@ function decode_packet(packet) {
 
 function decode_packet_to_display_string(packet) {
   var plen = packet.length;
-  if (plen < 1) return "ERROR: empty packet";
 
-  // This pid is repeated as the binary complement.
-  var pid = packet[0] & 0xf, npid = (~packet[0] >> 4) & 0xf;
+  var dp = decode_packet(packet);
+  if (dp.error !== null) return dp.error;
 
-  var pid_type = pid & 0x3, pid_name = pid >> 2;
+  var pid_type = dp.pid_type, pid_name = dp.pid_name;
 
-  if (pid !== npid) return 'ERROR: pid != npid';
-
-  var text = "";
+  var text = null;
   switch (pid_type) {
     case 0:
       text = "special";
@@ -80,10 +73,9 @@ function decode_packet_to_display_string(packet) {
     //   Sync PID Frame Number CRC5 EOP
     case 1:
       if (plen != 3) return "ERROR: token packet length != 3";
-      text = "token " + ["OUT", "SOF", "IN", "SETUP"][pid_name];
-      var fields = new structs.Fields();
-      var parser = (pid >> 2 === 1) ? structs.parse_StartOfFramePacket : structs.parse_TokenPacket;
-      parser(fields, packet, 1, packet.length);
+      text = "token " + ["OUT", "SOF", "IN", "SETUP"][pid_name] + ((pid_name === 1) ?
+                " FrameNumber: " + dp.FrameNumber :
+                " ADDR: " + dp.ADDR + " EndPoint: " + dp.EndPoint);
       var crc = crclib.crc5_16bit(packet[1], packet[2]);
       if (crc !== 6) text += " ERROR: bad crc5: 0x" + crc.toString(16);
       break;
@@ -92,14 +84,14 @@ function decode_packet_to_display_string(packet) {
     //   Sync PID EOP
     case 2:
       if (plen != 1) return "ERROR: handshake packet length != 1";
-      text = "handshake " + ["ACK", "NYET", "NAK", "STALL"][pid >> 2];
+      text = "handshake " + ["ACK", "NYET", "NAK", "STALL"][pid_name];
       break;
 
     // Data packets:
     //   Sync PID Data CRC16 EOP
     case 3:
       if (plen < 3) return "ERROR: data packet length < 3";
-      text = "data " + ["DATA0", "DATA2", "DATA1", "MDATA"][pid >> 2] + " len " + (packet.length-3);
+      text = "data " + ["DATA0", "DATA2", "DATA1", "MDATA"][pid_name] + " len " + (packet.length-3);
       var crc = crclib.crc16(packet, 1);
       if (crc !== 0xb001) res.error = "ERROR: bad crc16: 0x" + crc.toString(16);
       break;
