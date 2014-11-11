@@ -65,7 +65,7 @@ function decode_packet_to_display_string(packet) {
   var text = null;
   switch (pid_type) {
     case 0:
-      text = "special";
+      text = "special " + ["RESERVED", "PING", "SPLIT", "PRE/ERR"][pid_name];
       break;
 
     // Token packets:
