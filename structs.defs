@@ -66,3 +66,37 @@ struct {
   uint FrameNumber:11;
   uint CRC5:5;
 } StartOfFramePacket;
+
+struct {
+  uint bLength:8;
+  uint bDescriptorType:8;
+  uint bcdUSB:16;
+  uint bDeviceClass:8;
+  uint bDeviceSubClass:8;
+  uint bDeviceProtocol:8;
+  uint bMaxPacketSize0:8;
+  uint idVendor:16;
+  uint idProduct:16;
+  uint bcdDevice:16;
+  uint iManufacturer:8;
+  uint iProduct:8;
+  uint iSerialNumber:8;
+  uint bNumConfigurations:8;
+} StandardDeviceDescriptor;
+
+struct {
+  uint Reserved0:5;
+  uint RemoteWakeup:1;
+  uint SelfPowered:1;
+  uint Reserved1:1;
+} StandardConfigurationDescriptorAttributes;
+struct {
+  uint bLength:8;
+  uint bDescriptorType:8;
+  uint wTotalLength:16;
+  uint bNumInterfaces:8;
+  uint bConfigurationValue:8;
+  uint iConfiguration:8;
+  StandardConfigurationDescriptorAttributes bmAttributes:8;
+  uint bMaxPower:8;
+} StandardConfigurationDescriptor;
