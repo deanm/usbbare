@@ -1,4 +1,6 @@
 var decoder = require('./packet_decoder.js');
+var transfer_machine = require('./transfer_machine.js');
+var structs = require('./structs.js');
 
 function to_bin_str(len, v) {
   var str = '';
@@ -40,9 +42,13 @@ function make_field(name, numbits, fields) {
   return div;
 }
 
-function build_text_div(str) {
+function build_text_div(str, bp, lp) {
   var div = document.createElement('div');
   div.innerText = str;
+  if (lp !== null)
+    div.style.paddingLeft = lp + 'px';
+  if (bp !== null)
+    div.style.paddingBottom = bp + 'px';
   return div;
 }
 
@@ -52,6 +58,73 @@ var kPidNameTable =  [
   "ACK", "NYET", "NAK", "STALL",
   "DATA0", "DATA2", "DATA1", "MDATA"
 ];
+
+function hex_dump(data, cols) {
+  var str = '';
+  var lp = 0;
+  for (var i = 0, il = data.length; i < il; ++i) {
+    var hex = data[i].toString(16);
+    if (lp >= cols) {
+      str += "\n";
+      lp = 0;
+    }
+    if (hex.length < 2) hex = "0" + hex;
+    if (lp !== 0) str += ' ';
+    str += hex;
+    ++lp;
+  }
+  return str;
+}
+
+function flatten(arr, out) {
+  for (var i = 0, il = arr.length; i < il; ++i) {
+    var a = arr[i];
+    if (Array.isArray(a)) flatten(a, out);
+    else out.push(a);
+  }
+}
+
+function build_transaction_display(n, trans, id) {
+  while (n.firstChild) n.removeChild(n.firstChild);
+
+  n.appendChild(build_text_div("Transaction: " + id, 5));
+
+  var addr = trans[0], endp = trans[1], setup = trans[2], data = trans[3];
+
+  n.appendChild(build_text_div("Control transfer: addr: " + addr + " endpoint: " + endp, 2));
+  n.appendChild(build_text_div(setup.debug_string("  "), 6, 15));
+
+  var flat_data = [ ];
+  if (data !== null) flatten(data, flat_data);
+
+  var bRequest = setup.get_value("bRequest");
+  switch (bRequest) {
+    case 6: // GET_DESCRIPTOR
+      var wvalue = setup.get_value("wValue");
+      var desctype = wvalue >> 8, descidx = wvalue & 0xff;
+      n.appendChild(build_text_div(structs.eDescriptorTypes[desctype], 2));
+      var descriptor = new structs.Fields();
+      var parser = null;
+      if (desctype === 1) parser = structs.parse_StandardDeviceDescriptor;
+      if (desctype === 2) parser = structs.parse_StandardConfigurationDescriptor;
+      if (parser !== null) {
+        if (parser(descriptor, flat_data, 0, flat_data.length) === true) {
+          n.appendChild(build_text_div(descriptor.debug_string("    "), 6, 15));
+        } else {
+          n.appendChild(build_text_div("failed to parse", 6, 15));
+        }
+      }
+      break;
+    default:
+      console.log("Unknown bRequest: " + bRequest);
+      break;
+  }
+
+  if (flat_data.length > 0) {
+    n.appendChild(build_text_div('Data:'), 2);
+    n.appendChild(build_text_div(hex_dump(flat_data, 8), 0, 15));
+  }
+}
 
 function build_packet_display(n, p) {
   while (n.firstChild) n.removeChild(n.firstChild);
@@ -97,11 +170,15 @@ function build_packet_line(i) {
   var n = document.createElement('span');
   var ts = document.createElement('span');
   var f = document.createElement('span');
+  var trans = document.createElement('span');
   var desc = document.createElement('span');
   n.innerText = i; ts.innerText = p.t;
-  f.innerText = p.f; desc.innerText = decoder.decode_packet_to_display_string(p.d);
+  f.innerText = p.f;
+  trans.innerText = p.transaction_id === null ? '-' : p.transaction_id;
+  desc.innerText = decoder.decode_packet_to_display_string(p.d);
   line.appendChild(n); line.appendChild(ts);
-  line.appendChild(f); line.appendChild(desc);
+  line.appendChild(f); line.appendChild(trans);
+  line.appendChild(desc);
   line.packet_num = i;
   return line;
 }
@@ -111,6 +188,10 @@ function build_packet_list_display(packets) {
   var num_packets = packets.length;
 
   var total_height = packets.length * kCellHeight;
+
+  var transaction_panel = document.createElement('div');
+  transaction_panel.className = "usbbare-tp";
+  transaction_panel.style.display = "none";
 
   var hole0 = document.createElement('div');
   hole0.style.backgroundColor = 'blue';
@@ -130,6 +211,7 @@ function build_packet_list_display(packets) {
   var b = 0;
 
   var selected = null;
+  var cur_transaction_id = null;
 
   function empty_layout() {
     while (b > a) {  // removing elements from the bottom
@@ -137,6 +219,11 @@ function build_packet_list_display(packets) {
       div.removeChild(hole1.previousSibling);
       if (b === selected) div.removeChild(hole1.previousSibling);
     }
+  }
+
+  function is_in_current_transaction(a) {
+    if (cur_transaction_id === null) return false;
+    return packets[a].transaction_id === cur_transaction_id;
   }
 
   function layout() {
@@ -166,11 +253,15 @@ function build_packet_list_display(packets) {
     while (a > c) {  // adding elements to the top
       a--;
       if (a === selected) div.insertBefore(packet_display_node, hole0.nextSibling);
-      div.insertBefore(build_packet_line(a), hole0.nextSibling);
+      var l = build_packet_line(a);
+      if (is_in_current_transaction(a)) l.className = "selected";
+      div.insertBefore(l, hole0.nextSibling);
     }
 
     while (b < d && b < num_packets) {  // adding elements to the bottom
-      div.insertBefore(build_packet_line(b), hole1);
+      var l = build_packet_line(b);
+      if (is_in_current_transaction(b)) l.className = "selected";
+      div.insertBefore(l, hole1);
       if (b === selected) div.insertBefore(packet_display_node, hole1);
       ++b;
     }
@@ -193,12 +284,23 @@ function build_packet_list_display(packets) {
         empty_layout();
         build_packet_display(packet_display_node, packets[target.packet_num]);
         selected = target.packet_num;
+        var tid = packets[selected].transaction_id;
+        if (tid !== cur_transaction_id) {
+          if (tid !== null) {
+            build_transaction_display(transaction_panel, transactions[tid], tid);
+            transaction_panel.style.display = "block";
+          } else {
+            transaction_panel.style.display = "none";
+          }
+          cur_transaction_id = tid;
+        }
         layout();
         break;
       }
     }
   };})());
 
+  div.appendChild(transaction_panel);
   div.appendChild(hole0);
   div.appendChild(hole1);
 
@@ -211,6 +313,24 @@ function build_packet_list_display(packets) {
   return div;
 }
 
+var transactions = [ ];
+
 window.onload = function() {
+  var machine = new transfer_machine.TransferMachine();
+  machine.OnControlTransfer = function(id, addr, endp, setup, data) {
+    if (id !== transactions.length) throw "xx";
+    transactions.push([addr, endp, setup, data]);
+  };
+
+  console.log('Running state machine...');
+  for (var i = 0, il = packets.length; i < il; ++i) {
+    var p = packets[i];
+    var rp = p.d;
+    var res = null;
+    if (rp.length !== 0) res = machine.process_packet(rp);
+    p.transaction_id = res;
+  }
+  console.log('...done');
+
   document.body.appendChild(build_packet_list_display(packets));
 };
