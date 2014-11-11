@@ -129,6 +129,16 @@ function build_packet_list_display(packets) {
   var a = 0;
   var b = 0;
 
+  var selected = null;
+
+  function empty_layout() {
+    while (b > a) {  // removing elements from the bottom
+      --b;
+      div.removeChild(hole1.previousSibling);
+      if (b === selected) div.removeChild(hole1.previousSibling);
+    }
+  }
+
   function layout() {
     var body = document.body;
     var stop = body.scrollTop - div.offsetTop;
@@ -141,23 +151,27 @@ function build_packet_list_display(packets) {
 
     while (a < c && a < b) {  // removing elements from the top
       div.removeChild(hole0.nextSibling);
+      if (a === selected) div.removeChild(hole0.nextSibling);
       ++a;
     }
 
     while (b > d && b > a) {  // removing elements from the bottom
       --b;
       div.removeChild(hole1.previousSibling);
+      if (b === selected) div.removeChild(hole1.previousSibling);
     }
 
     if (a === b) a = b = c;
 
     while (a > c) {  // adding elements to the top
       a--;
+      if (a === selected) div.insertBefore(packet_display_node, hole0.nextSibling);
       div.insertBefore(build_packet_line(a), hole0.nextSibling);
     }
 
     while (b < d && b < num_packets) {  // adding elements to the bottom
       div.insertBefore(build_packet_line(b), hole1);
+      if (b === selected) div.insertBefore(packet_display_node, hole1);
       ++b;
     }
 
@@ -176,15 +190,15 @@ function build_packet_list_display(packets) {
     console.log(e);
     for (var target = e.target; target !== div; target = target.parentNode) {
       if (target.packet_num !== undefined) {
+        empty_layout();
         build_packet_display(packet_display_node, packets[target.packet_num]);
-        packet_display_node.style.top = (target.packet_num * kCellHeight - 5) + 'px';
         selected = target.packet_num;
+        layout();
         break;
       }
     }
   };})());
 
-  div.appendChild(packet_display_node);
   div.appendChild(hole0);
   div.appendChild(hole1);
 

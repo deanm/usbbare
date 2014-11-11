@@ -7,10 +7,6 @@ div.usbbare-pd {
   font-weight: 400;
 }
 
-div.usbbare-pd>div {
-  width: 36em;
-}
-
 div.usbbare-pd>div.selected {
   background-color: #ddd;
 }
@@ -42,16 +38,15 @@ div.usbbare-pd>div>span:nth-child(3) {
 
 div.usbbare-pd>div>span:nth-child(4) {
   display: inline-block;
-  width: 18em;
+  width: 20em;
   padding-left: 1em;
 }
 
 div.usbbare-p {
+  padding-top: 1em;
+  padding-bottom: 1em;
   padding-left: 16em;
   margin-left: 7px;
-  position: absolute;
-  top: 0;
-  left: 22em;
 }
 
 span.usbbare-bitfield:hover {
