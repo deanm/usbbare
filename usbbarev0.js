@@ -138,6 +138,19 @@ function look_up_interface_and_set_names(iface) {
   iface.set_display_at(7, iface5);
 }
 
+function disect_device_desc(n, flat_data) {
+  var descriptor = new structs.Fields();
+  if (structs.parse_StandardDeviceDescriptor(
+      descriptor, flat_data, 0, flat_data.length) === false) {
+    n.appendChild(text_div("failed to parse device descriptor", 6, 15));
+    return;
+  }
+
+  n.appendChild(text_div("DEVICE", 2));
+  lookup_device_class_and_set_names(descriptor);
+  n.appendChild(build_table_from_fields(descriptor));
+}
+
 function disect_config_desc(n, flat_data) {
   var descriptor = new structs.Fields();
   if (structs.parse_StandardConfigurationDescriptor(
@@ -225,7 +238,10 @@ function build_control_transfer_display(n, tr) {
       var desctype = wvalue >> 8, descidx = wvalue & 0xff;
 
       switch (desctype) {
-        case 2:  // config
+        case 1:  // DEVICE
+          disect_device_desc(n, flat_data);
+          break;
+        case 2:  // CONFIGURATION
           disect_config_desc(n, flat_data);
           break;
         default:
@@ -250,20 +266,23 @@ function build_transfer_display(n, tr) {
   for (key in out) {
     if (key.substr(key.length - 2) === "_m") continue;
     if (key === "setup" && typeof out[key] === "object") {
+      n.appendChild(text_div("Setup:", 2));
       n.appendChild(build_table_from_fields(out.setup));
       continue;
     }
-    if (key === "data" && Array.isArray(out[key])) {
-      var flat_data = [ ];
-      flatten(out[key], flat_data);
-      n.appendChild(text_div(hex_dump(flat_data, 16)));
-      continue
-    }
+    if (key === "data" && Array.isArray(out[key])) continue;
     n.appendChild(text_div(key + ': ' + out[key]));
   }
 
   if (tr.typename === "ControlTransfer")
     build_control_transfer_display(n, tr);
+
+  if (Array.isArray(out.data)) {
+    var flat_data = [ ];
+    flatten(out.data, flat_data);
+    n.appendChild(text_div("Data length: " + flat_data.length, 2));
+    n.appendChild(text_div(hex_dump(flat_data, 16), 0, 15));
+  }
 
   //n.appendChild(text_span(JSON.stringify(tr)));
 }
@@ -355,7 +374,16 @@ function build_transfer_line(tr, num, height) {
   n.style.color = (tr.success === true) ? "#090" : "#900";
   n.innerText = num; ts.innerText = tr.t;
   //f.innerText = '';
-  desc.innerText = tr.typename;
+
+  var desc_str = tr.typename;
+  // "ControlTransfer (SET_ADDRESS)", etc.
+  if (desc_str === "ControlTransfer" && tr.out.setup) {
+    desc_str += tr.out.setup.get_value_at(2) ? " \u2190 " : " \u2192 ";
+    if (tr.out.setup.get_display_at(3))
+      desc_str += " (" + tr.out.setup.get_display_at(3) + ")";
+  }
+
+  desc.innerText = desc_str;
   line.appendChild(n); line.appendChild(ts);
   line.appendChild(trans);
   line.appendChild(desc);
