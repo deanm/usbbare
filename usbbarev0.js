@@ -131,7 +131,7 @@ function look_up_interface_and_set_names(iface) {
   var iface3 = iface2[iface.get_value_at(6)];
   if (!iface3) return;
   iface.set_display_at(6, iface3);
-  var iface4 = structs["eInterfaceSubclass" + iface1 + "Interface" + iface3];
+  var iface4 = structs["eInterfaceSubclass" + iface1 + "Protocol" + iface3];
   if (!iface4) return;
   var iface5 = iface4[iface.get_value_at(7)];
   if (!iface5) return;

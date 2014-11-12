@@ -92,7 +92,7 @@ function dump_enum(classes) {
     for (var skey in subclasses) {
       var subclass = subclasses[skey];
       if (subclass.num_interfaces === 0) continue;
-      dump_enum2(subclass.interfaces, "InterfaceSubclass" + cls.name + "Interface" + subclass.name);
+      dump_enum2(subclass.interfaces, "InterfaceSubclass" + cls.name + "Protocol" + subclass.name);
     }
   }
 }

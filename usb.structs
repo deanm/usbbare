@@ -154,11 +154,11 @@ enum {
   ATCommandsCDMA = 6;
   DefinedByCommandSetDescriptor = 254;
   VendorSpecificMSFTRNDIS = 255;
-} InterfaceSubclassCommunicationsInterfaceAbstractmodem;
+} InterfaceSubclassCommunicationsProtocolAbstractmodem;
 
 enum {
   EthernetEmulationEEM = 7;
-} InterfaceSubclassCommunicationsInterfaceEthernetEmulation;
+} InterfaceSubclassCommunicationsProtocolEthernetEmulation;
 
 enum {
   NoSubclass = 0;
@@ -169,13 +169,13 @@ enum {
   None = 0;
   Keyboard = 1;
   Mouse = 2;
-} InterfaceSubclassHumanInterfaceDeviceInterfaceNoSubclass;
+} InterfaceSubclassHumanInterfaceDeviceProtocolNoSubclass;
 
 enum {
   None = 0;
   Keyboard = 1;
   Mouse = 2;
-} InterfaceSubclassHumanInterfaceDeviceInterfaceBootInterfaceSubclass;
+} InterfaceSubclassHumanInterfaceDeviceProtocolBootInterfaceSubclass;
 
 enum {
   StillImageCapture = 1;
@@ -183,7 +183,7 @@ enum {
 
 enum {
   PictureTransferProtocolPIMA15470 = 1;
-} InterfaceSubclassImagingInterfaceStillImageCapture;
+} InterfaceSubclassImagingProtocolStillImageCapture;
 
 enum {
   Printer = 1;
@@ -195,7 +195,7 @@ enum {
   Bidirectional = 2;
   IEEE12844CompatibleBidirectional = 3;
   VendorSpecific = 255;
-} InterfaceSubclassPrinterInterfacePrinter;
+} InterfaceSubclassPrinterProtocolPrinter;
 
 enum {
   RBCtypicallyFlash = 1;
@@ -210,19 +210,19 @@ enum {
   ControlBulkInterrupt = 0;
   ControlBulk = 1;
   BulkOnly = 80;
-} InterfaceSubclassMassStorageInterfaceRBCtypicallyFlash;
+} InterfaceSubclassMassStorageProtocolRBCtypicallyFlash;
 
 enum {
   ControlBulkInterrupt = 0;
   ControlBulk = 1;
   BulkOnly = 80;
-} InterfaceSubclassMassStorageInterfaceFloppyUFI;
+} InterfaceSubclassMassStorageProtocolFloppyUFI;
 
 enum {
   ControlBulkInterrupt = 0;
   ControlBulk = 1;
   BulkOnly = 80;
-} InterfaceSubclassMassStorageInterfaceSCSI;
+} InterfaceSubclassMassStorageProtocolSCSI;
 
 enum {
   Unused = 0;
@@ -232,7 +232,7 @@ enum {
   FullSpeedorRootHub = 0;
   SingleTT = 1;
   TTPerPort = 2;
-} InterfaceSubclassHubInterfaceUnused;
+} InterfaceSubclassHubProtocolUnused;
 
 enum {
   Unused = 0;
@@ -252,7 +252,7 @@ enum {
   HostBasedDriver = 253;
   CDCPUF = 254;
   VendorSpecific = 255;
-} InterfaceSubclassCDCDataInterfaceUnused;
+} InterfaceSubclassCDCDataProtocolUnused;
 
 enum {
   Undefined = 0;
@@ -271,7 +271,7 @@ enum {
 
 enum {
   USB2Compliance = 1;
-} InterfaceSubclassDiagnosticInterfaceReprogrammableDiagnostics;
+} InterfaceSubclassDiagnosticProtocolReprogrammableDiagnostics;
 
 enum {
   RadioFrequency = 1;
@@ -282,13 +282,13 @@ enum {
   Bluetooth = 1;
   UltraWideBandRadioControl = 2;
   RNDIS = 3;
-} InterfaceSubclassWirelessInterfaceRadioFrequency;
+} InterfaceSubclassWirelessProtocolRadioFrequency;
 
 enum {
   HostWireAdapterControlDataStreaming = 1;
   DeviceWireAdapterControlDataStreaming = 2;
   DeviceWireAdapterIsochronousStreaming = 3;
-} InterfaceSubclassWirelessInterfaceWirelessUSBWireAdapter;
+} InterfaceSubclassWirelessProtocolWirelessUSBWireAdapter;
 
 enum {
   Unknown1 = 1;
@@ -300,16 +300,16 @@ enum {
 enum {
   MicrosoftActiveSync = 1;
   PalmSync = 2;
-} InterfaceSubclassMiscellaneousDeviceInterfaceUnknown1;
+} InterfaceSubclassMiscellaneousDeviceProtocolUnknown1;
 
 enum {
   InterfaceAssociation = 1;
   WireAdapterMultifunctionPeripheral = 2;
-} InterfaceSubclassMiscellaneousDeviceInterfaceUnknown2;
+} InterfaceSubclassMiscellaneousDeviceProtocolUnknown2;
 
 enum {
   CableBasedAssociation = 1;
-} InterfaceSubclassMiscellaneousDeviceInterfaceUnknown3;
+} InterfaceSubclassMiscellaneousDeviceProtocolUnknown3;
 
 enum {
   DeviceFirmwareUpdate = 1;
@@ -320,7 +320,7 @@ enum {
 enum {
   TMC = 1;
   USB488 = 2;
-} InterfaceSubclassApplicationSpecificInterfaceInterfaceTestAndMeasurement;
+} InterfaceSubclassApplicationSpecificInterfaceProtocolTestAndMeasurement;
 
 enum {
   VendorSpecificSubclass = 255;
@@ -328,7 +328,7 @@ enum {
 
 enum {
   VendorSpecificProtocol = 255;
-} InterfaceSubclassVendorSpecificClassInterfaceVendorSpecificSubclass;
+} InterfaceSubclassVendorSpecificClassProtocolVendorSpecificSubclass;
 
 struct {
   uint bLength:8;
