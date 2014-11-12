@@ -164,46 +164,6 @@ function disect_config_desc(n, flat_data) {
   }
 }
 
-function build_transfer_display(n, trans, id) {
-  while (n.firstChild) n.removeChild(n.firstChild);
-
-  n.appendChild(text_div("Transaction: " + id, 5));
-
-  var addr = trans[0], endp = trans[1], setup = trans[2], data = trans[3];
-
-  n.appendChild(text_div("Control transfer: addr: " + addr + " endpoint: " + endp, 2));
-  n.appendChild(build_table_from_fields(setup));
-
-  var flat_data = [ ];
-  if (data !== null) flatten(data, flat_data);
-
-  var bRequest = setup.get_value("bRequest");
-  switch (bRequest) {
-    case 6: // GET_DESCRIPTOR
-      var wvalue = setup.get_value("wValue");
-      var desctype = wvalue >> 8, descidx = wvalue & 0xff;
-
-      switch (desctype) {
-        case 2:  // config
-          disect_config_desc(n, flat_data);
-          break;
-        default:
-          n.appendChild(text_div(structs.eDescriptorTypes[desctype], 2));
-          break;
-      }
-      break;
-
-    default:
-      console.log("Unknown bRequest: " + bRequest);
-      break;
-  }
-
-  if (flat_data.length > 0) {
-    n.appendChild(text_div('Data:'), 2);
-    n.appendChild(text_div(hex_dump(flat_data, 8), 0, 15));
-  }
-}
-
 function build_transaction_display(n, tr) {
   while (n.firstChild) n.removeChild(n.firstChild);
 
@@ -229,6 +189,36 @@ function build_transaction_display(n, tr) {
   //n.appendChild(text_span(JSON.stringify(tr)));
 }
 
+function build_control_transfer_display(n, tr) {
+  var data = tr.out.data;
+  var flat_data = [ ];
+  if (data !== null) flatten(data, flat_data);
+  if (data === null || flat_data.length === 0) return;
+
+  var setup = tr.out.setup;
+
+  var bRequest = setup.get_value("bRequest");
+  switch (bRequest) {
+    case 6: // GET_DESCRIPTOR
+      var wvalue = setup.get_value("wValue");
+      var desctype = wvalue >> 8, descidx = wvalue & 0xff;
+
+      switch (desctype) {
+        case 2:  // config
+          disect_config_desc(n, flat_data);
+          break;
+        default:
+          n.appendChild(text_div(structs.eDescriptorTypes[desctype], 2));
+          break;
+      }
+      break;
+
+    default:
+      console.log("Unknown bRequest: " + bRequest);
+      break;
+  }
+}
+
 function build_transfer_display(n, tr) {
   while (n.firstChild) n.removeChild(n.firstChild);
 
@@ -250,6 +240,9 @@ function build_transfer_display(n, tr) {
     }
     n.appendChild(text_div(key + ': ' + out[key]));
   }
+
+  if (tr.typename === "ControlTransfer")
+    build_control_transfer_display(n, tr);
 
   //n.appendChild(text_span(JSON.stringify(tr)));
 }
@@ -366,13 +359,26 @@ function LazyTable(cell_height, cells) {
   var expanded_id = null;
   var expanded_node = null;
 
-  this.should_display_as_selected = function(a) {
-    /*
-    if (cur_transaction_id === null) return false;
-    return cells[a].transaction_id === cur_transaction_id;
-    */
-    return false;
-  }
+  var selected = null;
+
+  this.select = function(p) { 
+    if (p !== null && p >= num_cells) p = num_cells-1;
+    if (p !== null && p < 0) p = 0;
+    var needs_layout = p !== selected && p >= a && p < b;
+    selected = p;
+    if (needs_layout) {
+      empty_layout();
+      layout();
+    }
+  };
+  this.clear_selection = function() {
+    var needs_layout = selected !== null && selected >= a && selected < b;
+    selected = null;
+    if (needs_layout) {
+      empty_layout();
+      layout();
+    }
+  };
 
   this.build_cell = function(id) {
     return null;
@@ -388,6 +394,14 @@ function LazyTable(cell_height, cells) {
 
   this.build_expanded = function(id) {
     return null;
+  };
+
+  this.build_cell_internal = function(id) {
+    var cell = this.build_cell(id);
+    cell.cell_id = id;
+    console.log([id, selected]);
+    if (id === selected) cell.className = "selected";
+    return cell;
   };
 
   function empty_layout() {  // Collapse b to a, emptying all cells.
@@ -427,14 +441,12 @@ function LazyTable(cell_height, cells) {
     while (a > c) {  // adding elements to the top
       a--;
       if (a === expanded_id) div.insertBefore(expanded_node, hole0.nextSibling);
-      var cell = this_.build_cell(a);
-      cell.cell_id = a;
+      var cell = this_.build_cell_internal(a);
       div.insertBefore(cell, hole0.nextSibling);
     }
 
     while (b < d && b < num_cells) {  // adding elements to the bottom
-      var cell = this_.build_cell(b);
-      cell.cell_id = b;
+      var cell = this_.build_cell_internal(b);
       div.insertBefore(cell, hole1);
       if (b === expanded_id) div.insertBefore(expanded_node, hole1);
       ++b;
@@ -448,6 +460,23 @@ function LazyTable(cell_height, cells) {
 
   document.addEventListener("scroll", function(x) { layout(); });
   window.addEventListener("resize", function(x) { layout(); });
+
+  div.setAttribute("tabindex", 0);
+
+  div.addEventListener("keydown", function(e) {
+    console.log(e);
+    if (e.which !== 40 && e.which !== 38) return true;
+
+    if (selected !== null) {
+      var new_pos = selected + (e.which === 40 ? 1 : -1);
+      new_node = this_.build_expanded(new_pos);
+      this_.select(new_pos);
+    }
+
+    e.preventDefault();
+    e.stopPropagation();
+    return false;
+  });
 
   div.addEventListener('click', (function() { return function(e) {
     for (var target = e.target; target !== div; target = target.parentNode) {
@@ -523,9 +552,10 @@ function build_ui(
     packets,
     transactions, transactions_succ, transactions_fail,
     transfers, transfers_succ, transfers_fail) {
-  var transaction_panel = document.createElement('div');
-  transaction_panel.className = "usbbare-tp";
-  transaction_panel.style.display = "none";
+
+  var panel = document.createElement('div');
+  panel.className = "usbbare-panel";
+  panel.style.display = "none";
 
   var packet_display_node = document.createElement('div');
   packet_display_node.className = "usbbare-p";
@@ -540,8 +570,10 @@ function build_ui(
   };
 
   packet_view.build_expanded = function(id) {
-    build_packet_display(packet_display_node, packets[id]);
-    return packet_display_node;
+    build_packet_display(panel, packets[id]);
+    panel.style.display = "block";
+    packet_view.select(id);
+    return null;  // Not inline in the list view.
   };
 
 /*
@@ -568,8 +600,10 @@ function build_ui(
     };
 
     view.build_expanded = function(pos) {
-      build_transaction_display(packet_display_node, trans[pos]);
-      return packet_display_node;
+      build_transaction_display(panel, trans[pos]);
+      panel.style.display = "block";
+      view.select(pos);
+      return null;  // Not inline in the list view.
     };
     return view;
   }
@@ -584,8 +618,10 @@ function build_ui(
     };
 
     view.build_expanded = function(pos) {
-      build_transfer_display(packet_display_node, tfer[pos]);
-      return packet_display_node;
+      build_transfer_display(panel, tfer[pos]);
+      panel.style.display = "block";
+      view.select(pos);
+      return null;  // Not inline in the list view.
     };
     return view;
   }
@@ -605,17 +641,20 @@ function build_ui(
   ];
   var cur_view_node = view_nodes[0];
 
-  document.body.appendChild(build_nav_bar(function(old_id, new_id, orb_id) {
+  var nav_bar = build_nav_bar(function(old_id, new_id, orb_id) {
     document.body.removeChild(cur_view_node.div);
     var new_node = view_nodes[new_id];
     if (Array.isArray(new_node)) new_node = new_node[orb_id];
     document.body.appendChild(new_node.div);
+    new_node.clear_selection();
     new_node.layout();
     cur_view_node = new_node;
-  }));
+  });
 
   cur_view_node.layout();
 
+  document.body.appendChild(nav_bar);
+  document.body.appendChild(panel);
   document.body.appendChild(cur_view_node.div);
 }
 

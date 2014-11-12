@@ -9,9 +9,18 @@ body {
   font-weight: 400;
 }
 
+div {
+  outline: 0;  /* no focus ring */
+}
+
+div.selected {
+  background-color: #eee;
+}
+
 div.usbbare-p-list {
   padding-top: 1.5em;
   cursor: default;
+  width: 42em;
 }
 
 div.usbbare-p-list>div>span:first-child {
@@ -54,13 +63,10 @@ div.usbbare-p-list>div>span:nth-child(5) {
   padding-left: 1em;
 }
 
-div.usbbare-p-list>div.selected span:nth-child(4) {
-  color: #00c;
-}
-
 div.usbbare-tr-list {
   padding-top: 1.5em;
   cursor: default;
+  width: 42em;
 }
 
 div.usbbare-tr-list span {
@@ -103,9 +109,10 @@ span.usbbare-bitfield:hover {
   text-decoration: underline;
 }
 
-div.usbbare-tp {
+div.usbbare-panel {
   border: 1px solid #ddd;
   padding: 0.5em;
+  margin-top: 1.5em;
 
   position: fixed;
   left: 42em;
@@ -114,19 +121,19 @@ div.usbbare-tp {
   overflow: scroll;
 }
 
-div.usbbare-tp table {
+div.usbbare-panel table {
   border-collapse: collapse;
   margin-bottom: 1em;
 }
 
-div.usbbare-tp td {
+div.usbbare-panel td {
   padding: 0;
   padding-right: 0.3em;
   padding-left: 1em;
   xborder: 1px solid #ddd
 }
 
-div.usbbare-tp td:first-child {
+div.usbbare-panel td:first-child {
   padding: 0;
   padding-right: 1em;
 }
