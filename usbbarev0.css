@@ -11,6 +11,7 @@ body {
 
 div.usbbare-p-list {
   padding-top: 1.5em;
+  cursor: default;
 }
 
 div.usbbare-p-list>div>span:first-child {
@@ -59,6 +60,7 @@ div.usbbare-p-list>div.selected span:nth-child(4) {
 
 div.usbbare-tr-list {
   padding-top: 1.5em;
+  cursor: default;
 }
 
 div.usbbare-tr-list span {
