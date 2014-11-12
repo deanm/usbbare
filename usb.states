@@ -5,12 +5,12 @@
 //   receiving function must accept the data packet that follows the SETUP
 //   token. If a non-control endpoint receives a SETUP token, it must ignore
 //   the transaction and return no response.
-transaction SetupTransaction : addr, endp, setup {
+transaction SetupTransaction : ADDR, EndPoint, setup {
   state setup_run {
     want SETUP {
       spawn setup_run;
-      capture addr ADDR;
-      capture endp EndPoint;
+      capture ADDR ADDR;
+      capture EndPoint EndPoint;
       transition setup_data;
     }
   }
@@ -29,12 +29,12 @@ transaction SetupTransaction : addr, endp, setup {
   }
 }
 
-transaction BulkTransactionIn : addr, endp, data {
+transaction BulkTransactionIn : ADDR, EndPoint, data {
   state bulkin_run {
     want IN {
       spawn bulkin_run;
-      capture addr ADDR;
-      capture endp EndPoint;
+      capture ADDR ADDR;
+      capture EndPoint EndPoint;
       transition bulkin_data;
     }
   }
@@ -53,12 +53,12 @@ transaction BulkTransactionIn : addr, endp, data {
   }
 }
 
-transaction BulkTransactionOut : addr, endp, data {
+transaction BulkTransactionOut : ADDR, EndPoint, data {
   state bulkout_run {
     want OUT {
       spawn bulkout_run;
-      capture addr ADDR;
-      capture endp EndPoint;
+      capture ADDR ADDR;
+      capture EndPoint EndPoint;
       transition bulkout_data;
     }
   }
@@ -73,6 +73,55 @@ transaction BulkTransactionOut : addr, endp, data {
   state bulkout_ack {
     need ACK {
       success;
+    }
+  }
+}
+
+transfer ControlTransfer : ADDR, EndPoint, setup, data {
+  state ct_run {
+    want SetupTransaction {
+      capture ADDR ADDR;
+      capture EndPoint EndPoint;
+      capture setup setup;
+      want setup.bmRequestType.transferDirection:0 {
+        spawn ct_run;
+        transition ct_dataout0 ADDR EndPoint setup.wLength nil;
+      }
+      need setup.bmRequestType.transferDirection:1 {
+        spawn ct_run;
+        transition ct_datain0 ADDR EndPoint setup.wLength nil;
+      }
+    }
+  }
+
+  state ct_datain0 : addr, endp, bytes_left, bytes {
+    want ADDR:addr EndPoint:endp {
+      want bytes_left:0 {
+        need BulkTransactionOut data.length:0 {
+          capture data bytes;
+          success;
+        }
+      }
+      need BulkTransactionIn {
+        dec bytes_left data.length;
+        append bytes data;
+        transition ct_datain0 addr endp bytes_left bytes;
+      }
+    }
+  }
+  state ct_dataout0 : addr, endp, bytes_left, bytes {
+    want ADDR:addr EndPoint:endp {
+      want bytes_left:0 {
+        need BulkTransactionIn data.length:0 {
+          capture data bytes;
+          success;
+        }
+      }
+      need BulkTransactionOut {
+        dec bytes_left data.length;
+        append bytes data;
+        transition ct_dataout0 addr endp bytes_left bytes;
+      }
     }
   }
 }

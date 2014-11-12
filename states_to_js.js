@@ -24,6 +24,9 @@ function find_short_replacement(s) {
       if (s === o[j]) return ["pid_type", i, "pid_name", j];
     }
   }
+  if (exports.indexOf(s) !== -1)
+    return ["typename", JSON.stringify(exports[exports.indexOf(s)])];
+  console.log(exports);
   throw "xx: " + s;
 }
 
@@ -32,6 +35,17 @@ function litstr(str) {
 }
 
 var kPPFields = ["pid_type", "pid_name", "data", "ADDR", "EndPoint"];
+var kTransactionFields = [
+  "ADDR",
+  "EndPoint",
+  "data",
+  "setup",
+  "bmRequestType",
+  "bRequest",
+  "wValue",
+  "wIndex",
+  "wLength",
+];
 
 var exports = [ ];
 
@@ -44,13 +58,18 @@ function generate_rule_code(locals, transtype, typename, rule, pre) {
   function scope_mapper(x) {
     if (x === "nil") return "[ ]";
     if (x === "null") return "null";
+    if (x === "typename") return "_pp.typename";
     if (locals.indexOf(x) !== -1) return x;
     if (locals.indexOf(x.split('.')[0]) !== -1)
       return x.split('.')[0] + ".get_value(" + JSON.stringify(x.split('.').slice(1).join('.')) + ")";
     if (x === parse_name) return x;
     if (x.split('.')[0] === parse_name)
       return parse_name + ".get_value(" + JSON.stringify(x.split('.').slice(1).join('.')) + ")";
-    if (kPPFields.indexOf(x.split('.')[0]) !== -1) return "_pp." + x;
+    if (transtype === "transfer" && kTransactionFields.indexOf(x) !== -1) return "_pp.out." + x;
+    if (x.split('.')[0] === "setup")
+      return "_pp.out.setup.get_value(" + JSON.stringify(x.split('.').slice(1).join('.')) + ")";
+    if (transtype === "transaction" && kPPFields.indexOf(x.split('.')[0]) !== -1) return "_pp." + x;
+    if (kTransactionFields.indexOf(x.split('.')[0]) !== -1) return "_pp.out." + x;
     // TODO properly manage scope, Fields need to be kept track of, etc.
     return locals[locals.length-1] + ".get_value(" + JSON.stringify(x) + ")";
   }

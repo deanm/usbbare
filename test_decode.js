@@ -22,6 +22,8 @@ function flatten(arr) {
 
 var transaction_machine = new usb_machines.TransactionMachine();
 
+var transfer_machine = new usb_machines.TransferMachine();
+
 /*
 function OnControlTransfer(addr, endp, setup, data) {
   console.log("Control transfer: addr: " + addr + " endpoint: " + endp);
@@ -47,9 +49,23 @@ function OnControlTransfer(addr, endp, setup, data) {
 }
 */
 
-transaction_machine.OnEmit = function(typename, success, out, state) {
-  //console.log(["emit", typename, out, state.id]);
-  console.log(["emit", typename, success, state.id]);
+transaction_machine.OnEmit = function(transtype, typename, success, out, state) {
+  //console.log(["emit", transtype, typename, success, state.id]);
+  if (success === true) {
+    var ids = state.ids;
+    var tr = {id: state.id,
+              typename: typename,
+              success: success,
+              out: out,
+              ids: ids,
+              t: packets[ids[0]].t /* TODO handle overflow */};
+    transfer_machine.process_transaction(tr, tr.id);
+  }
+};
+
+transfer_machine.OnEmit = function(transtype, typename, success, out, state) {
+  console.log(["emit", transtype, typename, success, state.id]);
+  console.log(out);
 };
 
 //var decoder = require('./packet_decoder.js');
