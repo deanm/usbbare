@@ -147,7 +147,6 @@ function disect_device_desc(n, flat_data) {
   }
 
   n.appendChild(text_div("DEVICE", 2));
-  lookup_device_class_and_set_names(descriptor);
   n.appendChild(build_table_from_fields(descriptor));
 }
 
