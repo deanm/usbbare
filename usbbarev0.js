@@ -9,6 +9,22 @@ function ce(name, styles) {
   return e;
 }
 
+function text_span(str, opts) {
+  var e = ce('span', opts);
+  e.appendChild(document.createTextNode(str));
+  return e;
+}
+
+function text_div(str, bp, lp) {
+  var div = document.createElement('div');
+  div.innerText = str;
+  if (lp !== null)
+    div.style.paddingLeft = lp + 'px';
+  if (bp !== null)
+    div.style.paddingBottom = bp + 'px';
+  return div;
+}
+
 function to_bin_str(len, v) {
   var str = '';
   for (var i = 0; i < len; ++i) {
@@ -46,16 +62,6 @@ function make_field(name, numbits, fields) {
 
   div.appendChild(title); div.appendChild(body);
 
-  return div;
-}
-
-function build_text_div(str, bp, lp) {
-  var div = document.createElement('div');
-  div.innerText = str;
-  if (lp !== null)
-    div.style.paddingLeft = lp + 'px';
-  if (bp !== null)
-    div.style.paddingBottom = bp + 'px';
   return div;
 }
 
@@ -119,11 +125,11 @@ function disect_config_desc(n, flat_data) {
   var descriptor = new structs.Fields();
   if (structs.parse_StandardConfigurationDescriptor(
       descriptor, flat_data, 0, flat_data.length) === false) {
-    n.appendChild(build_text_div("failed to parse config descriptor", 6, 15));
+    n.appendChild(text_div("failed to parse config descriptor", 6, 15));
     return;
   }
 
-  n.appendChild(build_text_div("CONFIGURATION", 2));
+  n.appendChild(text_div("CONFIGURATION", 2));
   n.appendChild(build_table_from_fields(descriptor));
 
   var num_interfaces = descriptor.get_value("bNumInterfaces");
@@ -136,10 +142,10 @@ function disect_config_desc(n, flat_data) {
     var iface = new structs.Fields();
     if (structs.parse_StandardInterfaceDescriptor(
         iface, flat_data, pos, flat_data.length) === false) {
-      n.appendChild(build_text_div("failed to parse interface descriptor", 6, 15));
+      n.appendChild(text_div("failed to parse interface descriptor", 6, 15));
       return;
     }
-    n.appendChild(build_text_div("INTERFACE", 2));
+    n.appendChild(text_div("INTERFACE", 2));
     n.appendChild(build_table_from_fields(iface));
     pos += iface.get_value("bLength");
 
@@ -148,24 +154,24 @@ function disect_config_desc(n, flat_data) {
       var ep = new structs.Fields();
       if (structs.parse_StandardEndpointDescriptor(
           ep, flat_data, pos, flat_data.length) === false) {
-        n.appendChild(build_text_div("failed to parse endpoint descriptor", 6, 15));
+        n.appendChild(text_div("failed to parse endpoint descriptor", 6, 15));
         return;
       }
-      n.appendChild(build_text_div("ENDPOINT", 2));
+      n.appendChild(text_div("ENDPOINT", 2));
       n.appendChild(build_table_from_fields(ep));
       pos += ep.get_value("bLength");
     }
   }
 }
 
-function build_transaction_display(n, trans, id) {
+function build_transfer_display(n, trans, id) {
   while (n.firstChild) n.removeChild(n.firstChild);
 
-  n.appendChild(build_text_div("Transaction: " + id, 5));
+  n.appendChild(text_div("Transaction: " + id, 5));
 
   var addr = trans[0], endp = trans[1], setup = trans[2], data = trans[3];
 
-  n.appendChild(build_text_div("Control transfer: addr: " + addr + " endpoint: " + endp, 2));
+  n.appendChild(text_div("Control transfer: addr: " + addr + " endpoint: " + endp, 2));
   n.appendChild(build_table_from_fields(setup));
 
   var flat_data = [ ];
@@ -182,7 +188,7 @@ function build_transaction_display(n, trans, id) {
           disect_config_desc(n, flat_data);
           break;
         default:
-          n.appendChild(build_text_div(structs.eDescriptorTypes[desctype], 2));
+          n.appendChild(text_div(structs.eDescriptorTypes[desctype], 2));
           break;
       }
       break;
@@ -193,9 +199,33 @@ function build_transaction_display(n, trans, id) {
   }
 
   if (flat_data.length > 0) {
-    n.appendChild(build_text_div('Data:'), 2);
-    n.appendChild(build_text_div(hex_dump(flat_data, 8), 0, 15));
+    n.appendChild(text_div('Data:'), 2);
+    n.appendChild(text_div(hex_dump(flat_data, 8), 0, 15));
   }
+}
+
+function build_transaction_display(n, tr) {
+  while (n.firstChild) n.removeChild(n.firstChild);
+
+  n.appendChild(text_div('Type: ' + tr.typename));
+  n.appendChild(text_div('Success: ' + tr.success));
+  var out = tr.out;
+  for (key in out) {
+    if (key.substr(key.length - 2) === "_m") continue;
+    if (key === "setup" && typeof out[key] === "object") {
+      n.appendChild(build_table_from_fields(out.setup));
+      continue;
+    }
+    if (key === "data" && Array.isArray(out[key])) {
+      var flat_data = [ ];
+      flatten(out[key], flat_data);
+      n.appendChild(text_div(hex_dump(flat_data, 8)));
+      continue
+    }
+    n.appendChild(text_div(key + ': ' + out[key]));
+  }
+
+  //n.appendChild(text_span(JSON.stringify(tr)));
 }
 
 function build_packet_display(n, p) {
@@ -207,7 +237,7 @@ function build_packet_display(n, p) {
     return;
   }
 
-  //n.appendChild(build_text_div(JSON.stringify(d)));
+  //n.appendChild(text_div(JSON.stringify(d)));
   var pid_type_str = ["special", "token", "handshake", "data"][d.pid_type];
   var pid_name_str = kPidNameTable[d.pid_type << 2 | d.pid_name];
 
@@ -354,11 +384,15 @@ function LazyTable(cell_height, cells) {
     while (a > c) {  // adding elements to the top
       a--;
       if (a === expanded_id) div.insertBefore(expanded_node, hole0.nextSibling);
-      div.insertBefore(this_.build_cell(a), hole0.nextSibling);
+      var cell = this_.build_cell(a);
+      cell.cell_id = a;
+      div.insertBefore(cell, hole0.nextSibling);
     }
 
     while (b < d && b < num_cells) {  // adding elements to the bottom
-      div.insertBefore(this_.build_cell(b), hole1);
+      var cell = this_.build_cell(b);
+      cell.cell_id = b;
+      div.insertBefore(cell, hole1);
       if (b === expanded_id) div.insertBefore(expanded_node, hole1);
       ++b;
     }
@@ -393,19 +427,13 @@ function LazyTable(cell_height, cells) {
   this.div = div;
 }
 
-function text_span(str, opts) {
-  var e = ce('span', opts);
-  e.appendChild(document.createTextNode(str));
-  return e;
-}
-
 function build_nav_bar(cb) {
   var div = ce('div');
   div.className = "usbbare-nav";
   var packets = text_span('packets', {marginRight: '2em', borderBottom: '1px solid black', cursor: 'default'});
   var transactions = ce('span', {marginRight: '2em', cursor: 'default'});
   transactions.appendChild(text_span('transactions', {marginRight: 0}));
-  var orb = text_span('\u25CF', {position: 'relative', left: '0.15em', top: '0.05em'});
+  var orb = text_span('\u25CF', {position: 'relative', left: '0.15em', top: '0.033em'});
   transactions.appendChild(orb);
 
   var cur_view = 0;
@@ -459,7 +487,6 @@ function build_ui(packets, transactions, transactions_succ, transactions_fail) {
 
   packet_view.build_cell = function(id) {
     var cell = build_packet_line(packets[id], id, kCellHeight + 'px');
-    cell.cell_id = id;
     return cell;
   };
 
@@ -485,11 +512,17 @@ function build_ui(packets, transactions, transactions_succ, transactions_fail) {
   function trans_table(trans) {
     var view = new LazyTable(kCellHeight, trans);
     view.div.className = "usbbare-tr-list";
-    view.build_cell = function(id) {
-      var tr = trans[id];
-      var cell = build_transaction_line(trans[id], tr.id, kCellHeight + 'px');
-      cell.cell_id = id;
+    view.build_cell = function(pos) {
+      console.log(['build cell', pos]);
+      var tr = trans[pos];
+      console.log(tr);
+      var cell = build_transaction_line(tr, tr.id, kCellHeight + 'px');
       return cell;
+    };
+
+    view.build_expanded = function(pos) {
+      build_transaction_display(packet_display_node, trans[pos]);
+      return packet_display_node;
     };
     return view;
   }
@@ -505,6 +538,7 @@ function build_ui(packets, transactions, transactions_succ, transactions_fail) {
     packet_view,
     [transaction_view, transaction_succ_view, transaction_fail_view]];
   var cur_view_node = view_nodes[0];
+  cur_view_node = view_nodes[1][0];
 
   document.body.appendChild(build_nav_bar(function(old_id, new_id, orb_id) {
     document.body.removeChild(cur_view_node.div);
