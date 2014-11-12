@@ -2,6 +2,13 @@ var decoder = require('./packet_decoder.js');
 var transfer_machine = require('./transfer_machine.js');
 var structs = require('./structs.js');
 
+function ce(name, styles) {
+  var e = document.createElement(name);
+  if (!styles) return e;
+  for (key in styles) e.style[key] = styles[key];
+  return e;
+}
+
 function to_bin_str(len, v) {
   var str = '';
   for (var i = 0; i < len; ++i) {
@@ -228,126 +235,174 @@ function build_packet_display(n, p) {
   }
 }
 
-function build_packet_line(i) {
-  var p = packets[i];
+function build_packet_line(p, num, height) {
   var line = document.createElement('div');
-  line.style.height = kCellHeight + 'px';
+  line.style.height = height;
   var n = document.createElement('span');
   var ts = document.createElement('span');
   var f = document.createElement('span');
   var trans = document.createElement('span');
   var desc = document.createElement('span');
-  n.innerText = i; ts.innerText = p.t;
+  n.innerText = num; ts.innerText = p.t;
   f.innerText = p.f;
   trans.innerText = p.transaction_id === null ? '-' : p.transaction_id;
   desc.innerText = decoder.decode_packet_to_display_string(p.d);
   line.appendChild(n); line.appendChild(ts);
   line.appendChild(f); line.appendChild(trans);
   line.appendChild(desc);
-  line.packet_num = i;
   return line;
 }
 
-var kCellHeight = 18;
-function build_packet_list_display(packets) {
-  var num_packets = packets.length;
+function LazyTable(cell_height, cells) {
+  var this_ = this;
 
-  var total_height = packets.length * kCellHeight;
+  var num_cells = cells.length;
 
-  var transaction_panel = document.createElement('div');
-  transaction_panel.className = "usbbare-tp";
-  transaction_panel.style.display = "none";
+  var total_height = num_cells * cell_height;
 
-  var hole0 = document.createElement('div');
-  hole0.style.backgroundColor = 'blue';
-  hole0.style.height = 0;
+  var div = ce('div');
 
-  var hole1 = document.createElement('div');
-  hole1.style.backgroundColor = 'red';
-  hole1.style.height = total_height + 'px';
-
-  var packet_display_node = document.createElement('div');
-  packet_display_node.className = "usbbare-p";
-
-  var div = document.createElement('div');
-  div.className = "usbbare-pd";
+  var hole0 = ce('div', {backgroundColor: 'blue', height: 0})
+  var hole1 = ce('div', {backgroundColor: 'red',  height: total_height + 'px'})
 
   var a = 0;
   var b = 0;
 
-  var selected = null;
-  var cur_transaction_id = null;
+  var expanded_id = null;
+  var expanded_node = null;
 
-  function empty_layout() {
-    while (b > a) {  // removing elements from the bottom
+  this.should_display_as_selected = function(a) {
+    /*
+    if (cur_transaction_id === null) return false;
+    return cells[a].transaction_id === cur_transaction_id;
+    */
+    return false;
+  }
+
+  this.build_cell = function(id) {
+    return null;
+  };
+
+  this.remove_cell = function(n) {
+    div.removeChild(n);
+  };
+
+  this.remove_expanded = function(n) {
+    div.removeChild(n);
+  };
+
+  this.build_expanded = function(id) {
+    return null;
+  };
+
+  function empty_layout() {  // Collapse b to a, emptying all cells.
+    while (b > a) {
       --b;
-      div.removeChild(hole1.previousSibling);
-      if (b === selected) div.removeChild(hole1.previousSibling);
+      if (b === expanded_id) this_.remove_expanded(hole1.previousSibling);
+      this_.remove_cell(hole1.previousSibling);
     }
   }
 
-  function is_in_current_transaction(a) {
-    if (cur_transaction_id === null) return false;
-    return packets[a].transaction_id === cur_transaction_id;
-  }
+  var body = document.body;
 
   function layout() {
-    var body = document.body;
     var stop = body.scrollTop - div.offsetTop;
 
-    var c = stop / kCellHeight | 0;
-    var d = (stop + body.clientHeight + kCellHeight) / kCellHeight | 0;
+    var c = stop / cell_height | 0;
+    var d = (stop + body.clientHeight + cell_height) / cell_height | 0;
+    c -= 10; d += 10;  // Some buffer
     if (c < 0) c = 0;
-    if (d > num_packets) d = num_packets;
+    if (d > num_cells) d = num_cells;
     if (d < c) d = c;
 
     while (a < c && a < b) {  // removing elements from the top
-      div.removeChild(hole0.nextSibling);
-      if (a === selected) div.removeChild(hole0.nextSibling);
+      this_.remove_cell(hole0.nextSibling);
+      if (a === expanded_id) this_.remove_expanded(hole0.nextSibling);
       ++a;
     }
 
     while (b > d && b > a) {  // removing elements from the bottom
       --b;
-      div.removeChild(hole1.previousSibling);
-      if (b === selected) div.removeChild(hole1.previousSibling);
+      if (b === expanded_id) this_.remove_expanded(hole1.previousSibling);
+      this_.remove_cell(hole1.previousSibling);
     }
 
     if (a === b) a = b = c;
 
     while (a > c) {  // adding elements to the top
       a--;
-      if (a === selected) div.insertBefore(packet_display_node, hole0.nextSibling);
-      var l = build_packet_line(a);
-      if (is_in_current_transaction(a)) l.className = "selected";
-      div.insertBefore(l, hole0.nextSibling);
+      if (a === expanded_id) div.insertBefore(expanded_node, hole0.nextSibling);
+      div.insertBefore(this_.build_cell(a), hole0.nextSibling);
     }
 
-    while (b < d && b < num_packets) {  // adding elements to the bottom
-      var l = build_packet_line(b);
-      if (is_in_current_transaction(b)) l.className = "selected";
-      div.insertBefore(l, hole1);
-      if (b === selected) div.insertBefore(packet_display_node, hole1);
+    while (b < d && b < num_cells) {  // adding elements to the bottom
+      div.insertBefore(this_.build_cell(b), hole1);
+      if (b === expanded_id) div.insertBefore(expanded_node, hole1);
       ++b;
     }
 
-    var hole0_height = a * kCellHeight;
-    var hole1_height = total_height - ((b - a) * kCellHeight) - hole0_height;
+    var hole0_height = a * cell_height;
+    var hole1_height = total_height - ((b - a) * cell_height) - hole0_height;
     hole0.style.height = hole0_height + 'px';
     hole1.style.height = hole1_height + 'px';
   }
 
   document.addEventListener("scroll", function(x) { layout(); });
   window.addEventListener("resize", function(x) { layout(); });
-  
-  var selected = null;
 
   div.addEventListener('click', (function() { return function(e) {
-    console.log(e);
     for (var target = e.target; target !== div; target = target.parentNode) {
-      if (target.packet_num !== undefined) {
+      if (target.cell_id !== undefined) {
+        var new_node = this_.build_expanded(target.cell_id);
+        if (new_node === null) break;
         empty_layout();
-        build_packet_display(packet_display_node, packets[target.packet_num]);
+        expanded_node = new_node;
+        expanded_id = target.cell_id;
+        layout();
+        break;
+      }
+    }
+  };})());
+
+  div.appendChild(hole0);
+  div.appendChild(hole1);
+
+  this.layout = function() { layout(); };
+  this.div = div;
+}
+
+function build_nav_bar() {
+  var div = ce('div', {
+    zIndex: 2,
+    position: 'fixed',
+    top: 0,
+    width: '100%',
+    backgroundColor: 'blue'});
+  div.appendChild(document.createTextNode('nav'));
+  return div;
+}
+
+var transactions = [ ];
+
+function build_ui(packets, transactions) {
+  var transaction_panel = document.createElement('div');
+  transaction_panel.className = "usbbare-tp";
+  transaction_panel.style.display = "none";
+
+  var packet_display_node = document.createElement('div');
+  packet_display_node.className = "usbbare-p";
+
+  var kCellHeight = 18;
+  var packet_view = new LazyTable(kCellHeight, packets);
+  packet_view.div.className = "usbbare-pd";
+
+  packet_view.build_cell = function(id) {
+    var cell = build_packet_line(packets[id], id, kCellHeight + 'px');
+    cell.cell_id = id;
+    return cell;
+  };
+
+/*
         selected = target.packet_num;
         var tid = packets[selected].transaction_id;
         if (tid !== cur_transaction_id) {
@@ -359,26 +414,19 @@ function build_packet_list_display(packets) {
           }
           cur_transaction_id = tid;
         }
-        layout();
-        break;
-      }
-    }
-  };})());
+*/
 
-  div.appendChild(transaction_panel);
-  div.appendChild(hole0);
-  div.appendChild(hole1);
+  packet_view.build_expanded = function(id) {
+    build_packet_display(packet_display_node, packets[id]);
+    return packet_display_node;
+  };
 
-  layout();
-  //layout_cd(47, 87);
-  //layout_cd(0, 39)
-  //layout_cd(0, 28)
-  //layout_cd(0, 17);
+  packet_view.layout();
 
-  return div;
+  document.body.appendChild(build_nav_bar());
+
+  document.body.appendChild(packet_view.div);
 }
-
-var transactions = [ ];
 
 window.onload = function() {
   var machine = new transfer_machine.TransferMachine();
@@ -397,5 +445,5 @@ window.onload = function() {
   }
   console.log('...done');
 
-  document.body.appendChild(build_packet_list_display(packets));
+  build_ui(packets, [ ]);
 };
