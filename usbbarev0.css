@@ -134,4 +134,10 @@ div.usbbare-nav {
   background-color: #ddd;
   height: 1.3em;
   padding-left: 2em;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
 }

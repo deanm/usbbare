@@ -402,25 +402,41 @@ function text_span(str, opts) {
 function build_nav_bar(cb) {
   var div = ce('div');
   div.className = "usbbare-nav";
-  var packets = text_span('packets', {paddingRight: '2em', textDecoration: 'underline', cursor: 'default'});
-  var transactions = text_span('transactions', {paddingRight: '2em', cursor: 'default'});
+  var packets = text_span('packets', {marginRight: '2em', borderBottom: '1px solid black', cursor: 'default'});
+  var transactions = ce('span', {marginRight: '2em', cursor: 'default'});
+  transactions.appendChild(text_span('transactions', {marginRight: 0}));
+  var orb = text_span('\u25CF', {position: 'relative', left: '0.15em', top: '0.05em'});
+  transactions.appendChild(orb);
 
   var cur_view = 0;
 
-  var link_nodes = [packets, transactions];
+  var link_nodes = [packets, transactions.firstChild];
 
-  packets.addEventListener('click', function() {
-    link_nodes[cur_view].style.textDecoration = 'none';
-    if (cur_view !== 0) cb(cur_view, 0);
+  var orb_state = 0;
+
+  packets.addEventListener('click', function(e) {
+    link_nodes[cur_view].style.borderBottom = 0;
+    if (cur_view !== 0) cb(cur_view, 0, orb_state);
     cur_view = 0;
-    link_nodes[cur_view].style.textDecoration = 'underline';
+    link_nodes[cur_view].style.borderBottom = '1px solid black';
+    e.preventDefault();
+    return false;
   });
 
-  transactions.addEventListener('click', function() {
-    link_nodes[cur_view].style.textDecoration = 'none';
-    if (cur_view !== 1) cb(cur_view, 1);
-    cur_view = 1;
-    link_nodes[cur_view].style.textDecoration = 'underline';
+  transactions.addEventListener('click', function(e) {
+    if (cur_view === 1) {
+      orb_state = (orb_state + 1) % 3;
+      orb.style.color = ["#000", "#090", "#900"][orb_state];
+      //orb.textContent = ['\u25CF', '\u25D0', '\u25D1'][orb_state];
+      cb(cur_view, 1, orb_state);
+    } else {
+      link_nodes[cur_view].style.borderBottom = 0;
+      if (cur_view !== 1) cb(cur_view, 1, orb_state);
+      cur_view = 1;
+      link_nodes[cur_view].style.borderBottom = '1px solid black';
+    }
+    e.preventDefault();
+    return false;
   });
 
   div.appendChild(packets);
@@ -429,7 +445,7 @@ function build_nav_bar(cb) {
   return div;
 }
 
-function build_ui(packets, transactions) {
+function build_ui(packets, transactions, transactions_succ, transactions_fail) {
   var transaction_panel = document.createElement('div');
   transaction_panel.className = "usbbare-tp";
   transaction_panel.style.display = "none";
@@ -466,33 +482,48 @@ function build_ui(packets, transactions) {
         }
 */
 
+  function trans_table(trans) {
+    var view = new LazyTable(kCellHeight, trans);
+    view.div.className = "usbbare-tr-list";
+    view.build_cell = function(id) {
+      var tr = trans[id];
+      var cell = build_transaction_line(trans[id], tr.id, kCellHeight + 'px');
+      cell.cell_id = id;
+      return cell;
+    };
+    return view;
+  }
 
-  var transaction_view = new LazyTable(kCellHeight, transactions);
-  transaction_view.div.className = "usbbare-tr-list";
-  transaction_view.build_cell = function(id) {
-    var tr = transactions[id];
-    var cell = build_transaction_line(transactions[id], tr.id, kCellHeight + 'px');
-    cell.cell_id = id;
-    return cell;
-  };
+  var transaction_view = trans_table(transactions);
+  var transaction_succ_view = trans_table(transactions_succ);
+  var transaction_fail_view = trans_table(transactions_fail);
 
   packet_view.layout();
   transaction_view.layout()
 
-  var view_nodes = [packet_view.div, transaction_view.div];
-  document.body.appendChild(build_nav_bar(function(old_id, new_id) {
-    document.body.removeChild(view_nodes[old_id]);
-    document.body.appendChild(view_nodes[new_id]);
+  var view_nodes = [
+    packet_view,
+    [transaction_view, transaction_succ_view, transaction_fail_view]];
+  var cur_view_node = view_nodes[0];
+
+  document.body.appendChild(build_nav_bar(function(old_id, new_id, orb_id) {
+    document.body.removeChild(cur_view_node.div);
+    var new_node = view_nodes[new_id];
+    if (Array.isArray(new_node)) new_node = new_node[orb_id];
+    document.body.appendChild(new_node.div);
+    new_node.layout();
+    cur_view_node = new_node;
   }));
 
-  document.body.appendChild(packet_view.div);
-  //document.body.appendChild(transaction_view.div);
+  document.body.appendChild(cur_view_node.div);
 }
 
 window.onload = function() {
   var transaction_machine = new usb_machines.TransactionMachine();
 
   var transactions = [ ];
+  var transactions_succ = [ ];
+  var transactions_fail = [ ];
 
   transaction_machine.OnEmit = function(transtype, typename, success, out, state) {
     var transaction_id = state.id;
@@ -508,12 +539,14 @@ window.onload = function() {
       packets[packet_id].transaction_id = transaction_id << 1 | succ_bit;
     }
 
-    transactions.push({id: transaction_id,
-                       typename: typename,
-                       success: success,
-                       out: out,
-                       ids: ids,
-                       t: packets[ids[0]].t /* TODO handle overflow */})
+    var tr = {id: transaction_id,
+              typename: typename,
+              success: success,
+              out: out,
+              ids: ids,
+              t: packets[ids[0]].t /* TODO handle overflow */};
+    transactions.push(tr);
+    (success === true ? transactions_succ : transactions_fail).push(tr);
   };
 
   console.log('Running transaction state machine...');
@@ -525,5 +558,5 @@ window.onload = function() {
   }
   console.log('...done');
 
-  build_ui(packets, transactions);
+  build_ui(packets, transactions, transactions_succ, transactions_fail);
 };
