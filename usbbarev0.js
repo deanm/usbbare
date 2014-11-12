@@ -209,6 +209,7 @@ function build_transaction_display(n, tr) {
 
   n.appendChild(text_div('Type: ' + tr.typename));
   n.appendChild(text_div('Success: ' + tr.success));
+  n.appendChild(text_div('Packet IDs: ' + tr.ids));
   var out = tr.out;
   for (key in out) {
     if (key.substr(key.length - 2) === "_m") continue;
@@ -219,7 +220,7 @@ function build_transaction_display(n, tr) {
     if (key === "data" && Array.isArray(out[key])) {
       var flat_data = [ ];
       flatten(out[key], flat_data);
-      n.appendChild(text_div(hex_dump(flat_data, 8)));
+      n.appendChild(text_div(hex_dump(flat_data, 16)));
       continue
     }
     n.appendChild(text_div(key + ': ' + out[key]));
@@ -513,9 +514,7 @@ function build_ui(packets, transactions, transactions_succ, transactions_fail) {
     var view = new LazyTable(kCellHeight, trans);
     view.div.className = "usbbare-tr-list";
     view.build_cell = function(pos) {
-      console.log(['build cell', pos]);
       var tr = trans[pos];
-      console.log(tr);
       var cell = build_transaction_line(tr, tr.id, kCellHeight + 'px');
       return cell;
     };
@@ -538,7 +537,6 @@ function build_ui(packets, transactions, transactions_succ, transactions_fail) {
     packet_view,
     [transaction_view, transaction_succ_view, transaction_fail_view]];
   var cur_view_node = view_nodes[0];
-  cur_view_node = view_nodes[1][0];
 
   document.body.appendChild(build_nav_bar(function(old_id, new_id, orb_id) {
     document.body.removeChild(cur_view_node.div);
@@ -565,6 +563,9 @@ window.onload = function() {
     //console.log(["emit", typename, success, state.id]);
     var ids = state.ids;
     var succ_bit = success === true ? 1 : 0;
+
+    if (success === true && ids.length !== 3)
+      console.log("Warning: Successful transaction doesn't have 3 packets: " + transaction_id);
 
     for (var i = 0, il = ids.length; i < il; ++i) {
       var packet_id = ids[i];
