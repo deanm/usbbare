@@ -8,7 +8,6 @@ function TransactionMachine() {
   this.OnEmit = null;
 
   var states = [ ];
-  var next_id = 0;
 
   var cb = {
     emit: function(transtype, typename, success, out, state) {
@@ -22,10 +21,8 @@ function TransactionMachine() {
         out: new usb_states[typename],
         s: usb_states[name](),
         ids: [ ],
-        id: next_id,
         transtype: transtype,
         typename: typename});
-      ++next_id;
     },
   };
 
@@ -72,7 +69,6 @@ function TransferMachine() {
   this.OnEmit = null;
 
   var states = [ ];
-  var next_id = 0;
 
   var cb = {
     emit: function(transtype, typename, success, out, state) {
@@ -86,10 +82,8 @@ function TransferMachine() {
         out: new usb_states[typename],
         s: usb_states[name](),
         ids: [ ],
-        id: next_id,
         transtype: transtype,
         typename: typename});
-      ++next_id;
     },
   };
 

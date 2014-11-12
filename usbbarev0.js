@@ -667,9 +667,7 @@ window.onload = function() {
   var transactions_fail = [ ];
 
   transaction_machine.OnEmit = function(transtype, typename, success, out, state) {
-    var transaction_id = state.id;
-    //console.log(["emit", typename, out, state.id]);
-    //console.log(["emit", typename, success, state.id]);
+    var transaction_id = transactions.length;
     var ids = state.ids;
     var succ_bit = success === true ? 1 : 0;
 
@@ -689,11 +687,10 @@ window.onload = function() {
               out: out,
               ids: ids,
               t: packets[ids[0]].t /* TODO handle overflow */};
-    var pos = transactions.length;
     transactions.push(tr);
     (success === true ? transactions_succ : transactions_fail).push(tr);
     if (success === true)
-      transfer_machine.process_transaction(tr, pos);
+      transfer_machine.process_transaction(tr, transaction_id);
   };
 
   var transfers = [ ];
@@ -701,7 +698,7 @@ window.onload = function() {
   var transfers_fail = [ ];
 
   transfer_machine.OnEmit = function(transtype, typename, success, out, state) {
-    var transfer_id = state.id;
+    var transfer_id = transfers.length;
     var ids = state.ids;
     var succ_bit = success === true ? 1 : 0;
 
