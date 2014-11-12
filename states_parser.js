@@ -118,8 +118,8 @@ function expr_rule(type, predicates, commands) {
   return {node_type: "rule", type: type, predicates: predicates, commands: commands};
 }
 
-function expr_state(name, inputs, rules) {
-  return {node_type: "state", name: name, inputs: inputs, rules: rules};
+function expr_state(name, intype, inputs, rules) {
+  return {node_type: "state", intype: intype, name: name, inputs: inputs, rules: rules};
 }
 
 function expr_command(name, args) {
@@ -224,6 +224,9 @@ function Parser(lexer) {
     var name = nextTokenExpect("sym");
     var inputs = [ ];
 
+    nextTokenExpect(":");
+    var intype = nextTokenExpect("sym");
+
     if (consumeNextIf(":")) {
       while (true) {
         if (peekNextIs("{")) break;
@@ -243,7 +246,7 @@ function Parser(lexer) {
 
     nextTokenExpect("}");
 
-    return expr_state(name.left, inputs, rules);
+    return expr_state(name.left, intype.left, inputs, rules);
   }
 
   function statement() {

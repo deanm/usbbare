@@ -34,15 +34,15 @@ function find_short_replacement(s) {
 
 var kPPFields = ["pid_type", "pid_name", "data", "ADDR", "EndPoint"];
 
-function generate_rule_code(locals, rule, pre) {
+function generate_rule_code(locals, intype, rule, pre) {
   var code = "";
   var expression = "";
-  var needs_fields = false;
 
   var parse_name = null;
 
   function scope_mapper(x) {
     if (x === "nil") return "[ ]";
+    if (x === "null") return "null";
     if (locals.indexOf(x) !== -1) return x;
     if (locals.indexOf(x.split('.')[0]) !== -1)
       return x.split('.')[0] + ".get_value(" + JSON.stringify(x.split('.').slice(1).join('.')) + ")";
@@ -62,7 +62,10 @@ function generate_rule_code(locals, rule, pre) {
     for (var w = 0, wl = pred.length; w < wl; w += 2) {
       if (pred[w+1] !== null) continue;
       var r = find_short_replacement(pred[w]);
-      pred.splice(w, 2, r[0], r[1], r[2], r[3]);
+      if (r.length === 4)
+        pred.splice(w, 2, r[0], r[1], r[2], r[3]);
+      else
+        pred.splice(w, 2, r[0], r[1]);
       wl += 2;
     }
 
@@ -76,8 +79,13 @@ function generate_rule_code(locals, rule, pre) {
         continue;
       }
       if (name === "parse") {
-        code = pre + "var " + val + " = new structs.Fields();\n" + code;
-        expression += "structs.parse_" + val + "(" + val + ", rp, 1, rp.length-2)";
+        if (intype === "packet") {
+          code = pre + "var " + val + " = new structs.Fields();\n" + code;
+          expression += "structs.parse_" + val + "(" + val + ", rp, 1, rp.length-2)";
+        } else {
+          code = pre + "var " + val + " = pp." + val + ";\n";
+          expression += "pp.transaction_type === " + JSON.stringify(val);
+        }
         parse_name = val;
         continue;
       } else {
@@ -91,17 +99,18 @@ function generate_rule_code(locals, rule, pre) {
     if (jl !== 1) expression += ")";
   }
 
+  if (expression.length === 0) expression = "1";
+
   code += pre + "if (" + expression + ") {\n";
 
   var next = "kPass";
-  var emit = null;
   var next_name = null;
 
   for (var j = 0, jl = rule.commands.length; j < jl; ++j) {
     var command = rule.commands[j];
     if (command.node_type === "rule") {
       code += generate_rule_code(locals.concat(parse_name !== null ? [parse_name] : [ ]),
-          command, pre + "  ");
+          intype, command, pre + "  ");
       continue;
     }
     if (command.node_type !== "command") throw "xx";
@@ -115,9 +124,8 @@ function generate_rule_code(locals, rule, pre) {
       case "transition":
         if (next !== "kPass") throw "xx";
         var sargs = args.slice(1).map(scope_mapper);
-        next = "state_" + args[0] + "(" + sargs.join(", ") + ")";
+        next = "state_" + args[0] + "_" + intype + "(" + sargs.join(", ") + ")";
         next_name = args[0];
-        if (emits === true) code += ", emit: emit";
         break;
       case "append":
         var sargs = args.map(scope_mapper);
@@ -126,11 +134,20 @@ function generate_rule_code(locals, rule, pre) {
         break;
       case "emit":
         var sargs = args.slice(1).map(scope_mapper);
-        emit = "[" + [JSON.stringify(args[0])].concat(sargs).join(", ") + "]";
+        code += pre + "  cb.emit(" + JSON.stringify(args[0]) + ", state, [" + sargs.join(", ") + "]);\n";
         break;
-      case "done":
+      case "spawn":
+        var sargs = args.slice(1).map(scope_mapper);
+        code += pre + "  cb.spawn(" + JSON.stringify(args[0]) + ", state, [" + sargs.join(", ") + "]);\n";
+        break;
+      case "restart":
+        var sargs = args.slice(1).map(scope_mapper);
+        code += pre + "  cb.restart(" + JSON.stringify(args[0]) + ", state, [" + sargs.join(", ") + "]);\n";
+        break;
+
+      case "end":
         if (next !== "kPass") throw "xx";
-        next = "kDone";
+        next = "kEnd";
         break;
       default:
         throw command.name;
@@ -138,15 +155,17 @@ function generate_rule_code(locals, rule, pre) {
     }
   }
   if (next_name === null) next_name = next;
-  code += pre + "  return {next: " + next + ", next_name: " + JSON.stringify(next_name) +
-                        ", emit: " + emit + "};\n";
+  code += pre + "  return {next: " + next + ", next_name: " + JSON.stringify(next_name) + "};\n";
   code += pre + "}\n";
+  // TODO: check was last rule
+  if (rule.type === "need")
+    code += pre + 'throw "Missed needed rule in state: ' + n.name + '";\n';
   return code;
 }
 
 function generate_state_code(n) {
-  var code = "function state_" + n.name + "(" + n.inputs.join(", ") + ") {\n" +
-             "  return function(rp, pp) {\n";
+  var code = "function state_" + n.name + "_" + n.intype + "(" + n.inputs.join(", ") + ") {\n" +
+             "  return function(cb, state, rp, pp) {\n";
 
   var rules = n.rules;
 
@@ -154,13 +173,9 @@ function generate_state_code(n) {
 
   for (var i = 0, il = rules.length; i < il; ++i) {
     var rule = rules[i];
-    code += generate_rule_code(n.inputs, rule, "    ");
-    if (rule.type === "need") {
-      code += '    throw "Missed needed rule in state: ' + n.name + '";\n';
-      break;  // TODO: check was last rule
-    }
+    code += generate_rule_code(n.inputs, n.intype, rule, "    ");
   }
-  code += "    return {next: kPass, emit: null};\n";
+  code += "    return {next: kPass};\n";
   code += "  };\n";
   code += "}\n";
   return code;
@@ -168,7 +183,7 @@ function generate_state_code(n) {
 
 console.log("// This code is autogenerated from " + filename + "\n");
 console.log("var structs = require('./structs.js');\n");
-console.log("var kPass = { }, kDone = { };\n");
+console.log("var kPass = { }, kEnd = { };\n");
 for (var i = 0, il = nodes.length; i < il; ++i) {
   var n = nodes[i];
   if (n.node_type !== "state") throw "xx";
@@ -177,10 +192,10 @@ for (var i = 0, il = nodes.length; i < il; ++i) {
 
 console.log("try {");
   console.log("  exports.kPass = kPass;");
-  console.log("  exports.kDone = kDone;");
+  console.log("  exports.kEnd = kEnd;");
 for (var i = 0, il = nodes.length; i < il; ++i) {
   var n = nodes[i];
-  var name = "state_" + n.name;
+  var name = "state_" + n.name + "_" + n.intype;
   console.log("  exports." + name + " = " + name + ";");
 }
 console.log("} catch(e) { }");

@@ -22,7 +22,7 @@ function flatten(arr) {
 
 var machine = new transfer_machine.TransferMachine();
 
-machine.OnControlTransfer = function(addr, endp, setup, data) {
+function OnControlTransfer(addr, endp, setup, data) {
   console.log("Control transfer: addr: " + addr + " endpoint: " + endp);
   var bRequest = setup.get_value("bRequest");
   console.log(setup.debug_string("  "));
@@ -43,12 +43,16 @@ machine.OnControlTransfer = function(addr, endp, setup, data) {
       console.log("Unknown bRequest: " + bRequest);
       break;
   }
+}
+
+machine.OnEmit = function(name, state, args) {
+  console.log(["emit", name, state.id, args]);
 };
 
 var decoder = require('./packet_decoder.js');
 for (var i = 0, il = packets.length; i < il; ++i) {
   var packet = packets[i];
-  console.log(decoder.decode_packet_to_display_string(packet.d));
+  //console.log(decoder.decode_packet_to_display_string(packet.d));
   if (packet.d.length !== 0)
-    machine.process_packet(packet.d);
+    machine.process_packet(packet.d, i);
 }
