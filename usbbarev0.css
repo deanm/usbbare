@@ -126,6 +126,10 @@ div.usbbare-panel table {
   margin-bottom: 1em;
 }
 
+div.usbbare-panel tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
 div.usbbare-panel td {
   padding: 0;
   padding-right: 0.3em;
@@ -136,6 +140,15 @@ div.usbbare-panel td {
 div.usbbare-panel td:first-child {
   padding: 0;
   padding-right: 1em;
+  width: 20em;
+}
+
+div.usbbare-panel td:nth-child(2) {
+  width: 2em;
+}
+
+div.usbbare-panel td:nth-child(3) {
+  width: 3em;
 }
 
 div.usbbare-nav {
