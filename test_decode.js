@@ -1,6 +1,6 @@
 var fs = require('fs');
 var structs = require('./structs.js');
-var transfer_machine = require('./transfer_machine.js');
+var usb_machine = require('./usb_machine.js');
 
 if (process.argv.length > 2) {
   eval(fs.readFileSync(process.argv[2], 'utf8'));
@@ -20,8 +20,9 @@ function flatten(arr) {
   return arr.length === 0 ? arr : arr.reduce(function(a, b) { return a.concat(b); });
 }
 
-var machine = new transfer_machine.TransferMachine();
+var transaction_machine = new usb_machine.TransactionMachine();
 
+/*
 function OnControlTransfer(addr, endp, setup, data) {
   console.log("Control transfer: addr: " + addr + " endpoint: " + endp);
   var bRequest = setup.get_value("bRequest");
@@ -44,15 +45,17 @@ function OnControlTransfer(addr, endp, setup, data) {
       break;
   }
 }
+*/
 
-machine.OnEmit = function(name, state, args) {
-  console.log(["emit", name, state.id, args]);
+transaction_machine.OnEmit = function(typename, success, out, state) {
+  //console.log(["emit", typename, out, state.id]);
+  console.log(["emit", typename, success, state.id]);
 };
 
-var decoder = require('./packet_decoder.js');
+//var decoder = require('./packet_decoder.js');
 for (var i = 0, il = packets.length; i < il; ++i) {
   var packet = packets[i];
   //console.log(decoder.decode_packet_to_display_string(packet.d));
   if (packet.d.length !== 0)
-    machine.process_packet(packet.d, i);
+    transaction_machine.process_packet(packet.d, i);
 }

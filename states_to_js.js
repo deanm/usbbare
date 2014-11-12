@@ -1,10 +1,5 @@
 var fs = require('fs');
 var parser = require('./states_parser.js');
-var filename = "transfer.states";
-var lexer = new parser.Lexer(fs.readFileSync(__dirname + '/' + filename, 'utf8'));
-var parser = new parser.Parser(lexer);
-
-var nodes = parser.parse();
 
 //console.log(JSON.stringify(nodes, null, 2));
 
@@ -32,9 +27,15 @@ function find_short_replacement(s) {
   throw "xx: " + s;
 }
 
+function litstr(str) {
+  return JSON.stringify(str);
+}
+
 var kPPFields = ["pid_type", "pid_name", "data", "ADDR", "EndPoint"];
 
-function generate_rule_code(locals, intype, rule, pre) {
+var exports = [ ];
+
+function generate_rule_code(locals, transtype, typename, rule, pre) {
   var code = "";
   var expression = "";
 
@@ -49,7 +50,7 @@ function generate_rule_code(locals, intype, rule, pre) {
     if (x === parse_name) return x;
     if (x.split('.')[0] === parse_name)
       return parse_name + ".get_value(" + JSON.stringify(x.split('.').slice(1).join('.')) + ")";
-    if (kPPFields.indexOf(x.split('.')[0]) !== -1) return "pp." + x;
+    if (kPPFields.indexOf(x.split('.')[0]) !== -1) return "_pp." + x;
     // TODO properly manage scope, Fields need to be kept track of, etc.
     return locals[locals.length-1] + ".get_value(" + JSON.stringify(x) + ")";
   }
@@ -79,12 +80,12 @@ function generate_rule_code(locals, intype, rule, pre) {
         continue;
       }
       if (name === "parse") {
-        if (intype === "packet") {
+        if (1||transtype === "packet") {
           code = pre + "var " + val + " = new structs.Fields();\n" + code;
-          expression += "structs.parse_" + val + "(" + val + ", rp, 1, rp.length-2)";
+          expression += "structs.parse_" + val + "(" + val + ", _pp.data, 0, _pp.data.length)";
         } else {
-          code = pre + "var " + val + " = pp." + val + ";\n";
-          expression += "pp.transaction_type === " + JSON.stringify(val);
+          code = pre + "var " + val + " = _pp." + val + ";\n";
+          expression += "_pp.transaction_type === " + JSON.stringify(val);
         }
         parse_name = val;
         continue;
@@ -110,12 +111,11 @@ function generate_rule_code(locals, intype, rule, pre) {
     var command = rule.commands[j];
     if (command.node_type === "rule") {
       code += generate_rule_code(locals.concat(parse_name !== null ? [parse_name] : [ ]),
-          intype, command, pre + "  ");
+          transtype, typename, command, pre + "  ");
       continue;
     }
     if (command.node_type !== "command") throw "xx";
     var args = command.args;
-    var emits = false;
     switch (command.name) {
       case "dec":
         var sargs = args.map(scope_mapper);
@@ -124,7 +124,7 @@ function generate_rule_code(locals, intype, rule, pre) {
       case "transition":
         if (next !== "kPass") throw "xx";
         var sargs = args.slice(1).map(scope_mapper);
-        next = "state_" + args[0] + "_" + intype + "(" + sargs.join(", ") + ")";
+        next = "state_" + typename + "_" + args[0] + "(" + sargs.join(", ") + ")";
         next_name = args[0];
         break;
       case "append":
@@ -132,22 +132,25 @@ function generate_rule_code(locals, intype, rule, pre) {
         //code += pre + "  " + args[0] + " = " + args[0] + ".concat(" + args[1] + ");\n";
         code += pre + "  " + sargs[0] + " = [" + sargs[0] + ", " + sargs[1] + "];\n";
         break;
-      case "emit":
-        var sargs = args.slice(1).map(scope_mapper);
-        code += pre + "  cb.emit(" + JSON.stringify(args[0]) + ", state, [" + sargs.join(", ") + "]);\n";
-        break;
       case "spawn":
         var sargs = args.slice(1).map(scope_mapper);
-        code += pre + "  cb.spawn(" + JSON.stringify(args[0]) + ", state, [" + sargs.join(", ") + "]);\n";
+        code += pre + "  _cb.spawn(" + litstr(args[0]) + ", " +
+            litstr(transtype) + ", " + litstr(typename) + ", " + "_state);\n";
         break;
-      case "restart":
-        var sargs = args.slice(1).map(scope_mapper);
-        code += pre + "  cb.restart(" + JSON.stringify(args[0]) + ", state, [" + sargs.join(", ") + "]);\n";
+      case "success":
+        code += pre + "  _cb.emit(" + litstr(transtype) + ", true, _out, _state);\n";
+        if (next !== "kPass") throw "xx"; next = "kEnd";
         break;
-
-      case "end":
-        if (next !== "kPass") throw "xx";
-        next = "kEnd";
+      case "failed":
+        code += pre + "  _cb.emit(" + litstr(transtype) + ", false, _out, _state);\n";
+        if (next !== "kPass") throw "xx"; next = "kEnd";
+        break;
+      case "capture":
+        code += pre + "  _out." + args[0] + " = " + scope_mapper(args[1]) + ";" +
+                " _out." + args[0] + "_m = _meta;\n";
+        break;
+      case "die":
+        if (next !== "kPass") throw "xx"; next = "kEnd";
         break;
       default:
         throw command.name;
@@ -155,17 +158,21 @@ function generate_rule_code(locals, intype, rule, pre) {
     }
   }
   if (next_name === null) next_name = next;
-  code += pre + "  return {next: " + next + ", next_name: " + JSON.stringify(next_name) + "};\n";
+  code += pre + "  return {next: " + next + ", next_name: " + litstr(transtype + "::" + next_name) + "};\n";
   code += pre + "}\n";
   // TODO: check was last rule
-  if (rule.type === "need")
-    code += pre + 'throw "Missed needed rule in state: ' + n.name + '";\n';
+  if (rule.type === "need") {  // Same as calling failed
+    code += pre + "_cb.emit(" + litstr(transtype) + ", false, _out, _state);\n";
+    code += pre + "return {next: kEnd, next_name: \"kEnd\"};\n";
+  }
   return code;
 }
 
-function generate_state_code(n) {
-  var code = "function state_" + n.name + "_" + n.intype + "(" + n.inputs.join(", ") + ") {\n" +
-             "  return function(cb, state, rp, pp) {\n";
+function generate_state_code(n, transtype, typename) {
+  var funcname = "state_" + typename + "_" + n.name;
+  exports.push(funcname);
+  var code = "function " + funcname + "(" + n.inputs.join(", ") + ") {\n" +
+             "  return function(_pp, _out, _meta, _state, _cb) {\n";
 
   var rules = n.rules;
 
@@ -173,7 +180,7 @@ function generate_state_code(n) {
 
   for (var i = 0, il = rules.length; i < il; ++i) {
     var rule = rules[i];
-    code += generate_rule_code(n.inputs, n.intype, rule, "    ");
+    code += generate_rule_code(n.inputs, transtype, typename, rule, "    ");
   }
   code += "    return {next: kPass};\n";
   code += "  };\n";
@@ -181,21 +188,46 @@ function generate_state_code(n) {
   return code;
 }
 
+function generate_trans_code(n) {
+  var code = "function " + n.typename + "() {\n";
+  var fn = n.fields;
+  for (var i = 0, il = fn.length; i < il; ++i) {
+    code += "  this." + fn[i] + " = undefined;\n";
+    code += "  this." + fn[i] + "_m = undefined;\n";
+  }
+  code += "}\n\n";
+  exports.push(n.typename);
+
+  var states = n.states;
+  for (var i = 0, il = states.length; i < il; ++i) {
+    var state = states[i];
+    code += generate_state_code(state, n.type, n.typename);
+  }
+  return code;
+}
+
+if (process.argv.length < 3) {
+  console.log("usage: <filename.js>");
+  process.exit(1);
+}
+
+var filename = process.argv[2];
+var lexer = new parser.Lexer(fs.readFileSync(__dirname + '/' + filename, 'utf8'));
+var parser = new parser.Parser(lexer);
+var nodes = parser.parse();
+
 console.log("// This code is autogenerated from " + filename + "\n");
 console.log("var structs = require('./structs.js');\n");
 console.log("var kPass = { }, kEnd = { };\n");
+exports.push("kPass", "kEnd");
 for (var i = 0, il = nodes.length; i < il; ++i) {
   var n = nodes[i];
-  if (n.node_type !== "state") throw "xx";
-  console.log(generate_state_code(n));
+  if (n.node_type !== "trans") throw "xx";
+  console.log(generate_trans_code(n));
 }
 
 console.log("try {");
-  console.log("  exports.kPass = kPass;");
-  console.log("  exports.kEnd = kEnd;");
-for (var i = 0, il = nodes.length; i < il; ++i) {
-  var n = nodes[i];
-  var name = "state_" + n.name + "_" + n.intype;
-  console.log("  exports." + name + " = " + name + ";");
+for (var i = 0, il = exports.length; i < il; ++i) {
+  console.log("  exports." + exports[i] + " = " + exports[i]+ ";");
 }
 console.log("} catch(e) { }");

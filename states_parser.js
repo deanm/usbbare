@@ -93,7 +93,11 @@ function Lexer(str) {
       var val = match[0];
       p += val.length;
       if (mapper !== null) return tokenfunc(mapper(val));
-      if (val === "state" || val === "want" || val === "need") return token_keyword(val);
+      switch (val) {
+        case "state": case "want": case "need":
+        case "transaction": case "transfer":
+          return token_keyword(val);
+      }
       return token_sym(val);
     }
 
@@ -118,12 +122,16 @@ function expr_rule(type, predicates, commands) {
   return {node_type: "rule", type: type, predicates: predicates, commands: commands};
 }
 
-function expr_state(name, intype, inputs, rules) {
-  return {node_type: "state", intype: intype, name: name, inputs: inputs, rules: rules};
+function expr_state(name, inputs, rules) {
+  return {node_type: "state", name: name, inputs: inputs, rules: rules};
 }
 
 function expr_command(name, args) {
   return {node_type: "command", name: name, args: args};
+}
+
+function expr_trans(type, typename, fields, states) {
+  return {node_type: "trans", type: type, typename: typename, fields: fields, states: states};
 }
 
 function Parser(lexer) {
@@ -224,9 +232,6 @@ function Parser(lexer) {
     var name = nextTokenExpect("sym");
     var inputs = [ ];
 
-    nextTokenExpect(":");
-    var intype = nextTokenExpect("sym");
-
     if (consumeNextIf(":")) {
       while (true) {
         if (peekNextIs("{")) break;
@@ -246,26 +251,48 @@ function Parser(lexer) {
 
     nextTokenExpect("}");
 
-    return expr_state(name.left, intype.left, inputs, rules);
+    return expr_state(name.left, inputs, rules);
   }
 
-  function statement() {
-    var obj = nextToken();
-    if (obj === null) return null;
-    if (obj.token_type !== "keyword") throw "Expected keyword";
+  function parse_trans() {
+    var keyword = nextTokenExpect("keyword").left;
+    if (keyword !== "transaction" && keyword !== "transfer") throw "xx";
 
-    if (obj.left !== "state") throw "xx";
+    var name = nextTokenExpect("sym").left;
 
-    var state = parse_state();
-    return state;
+    var field_names = [ ];
+    if (consumeNextIf(":")) {
+      while (true) {
+        if (peekNextIs("{")) break;
+        if (field_names.length !== 0) nextTokenExpect(",");
+        var iname = nextTokenExpect("sym");
+        field_names.push(iname.left);
+      }
+    }
+
+    nextTokenExpect("{");
+
+    var states = [ ];
+
+    while (true) {
+      if (peekNextIs("}")) break;
+      var state_keyword = nextTokenExpect("keyword").left;
+      if (state_keyword !== "state") throw "xx";
+      var state = parse_state();
+      states.push(state);
+    }
+
+    nextTokenExpect("}");
+
+    return expr_trans(keyword, name, field_names, states);
   }
 
   this.parse = function() {
     var statements = [ ];
     while (true) {
-      var expr = statement();
-      if (expr === null) break;
-      statements.push(expr);
+      if (peekToken() === null) break;
+      var trans = parse_trans();
+      statements.push(trans);
     }
     return statements;
   };

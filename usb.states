@@ -1,0 +1,78 @@
+
+// 8.4.6.4 Function Response to a SETUP Transaction
+//   Upon receiving a SETUP token, a function must accept the data. A function
+//   may not respond to a SETUP token with either STALL or NAK, and the
+//   receiving function must accept the data packet that follows the SETUP
+//   token. If a non-control endpoint receives a SETUP token, it must ignore
+//   the transaction and return no response.
+transaction SetupTransaction : addr, endp, setup {
+  state setup_run {
+    want SETUP {
+      spawn setup_run;
+      capture addr ADDR;
+      capture endp EndPoint;
+      transition setup_data;
+    }
+  }
+
+  state setup_data {
+    need DATA0 data.length:8 parse:setup {
+      capture setup setup;
+      transition setup_ack;
+    }
+  }
+
+  state setup_ack {
+    need ACK {
+      success;
+    }
+  }
+}
+
+transaction BulkTransactionIn : addr, endp, data {
+  state bulkin_run {
+    want IN {
+      spawn bulkin_run;
+      capture addr ADDR;
+      capture endp EndPoint;
+      transition bulkin_data;
+    }
+  }
+
+  state bulkin_data {
+    need pid_type:DATA {
+      capture data data;
+      transition bulkin_ack;
+    }
+  }
+
+  state bulkin_ack {
+    need ACK {
+      success;
+    }
+  }
+}
+
+transaction BulkTransactionOut : addr, endp, data {
+  state bulkout_run {
+    want OUT {
+      spawn bulkout_run;
+      capture addr ADDR;
+      capture endp EndPoint;
+      transition bulkout_data;
+    }
+  }
+
+  state bulkout_data {
+    need pid_type:DATA {
+      capture data data;
+      transition bulkout_ack;
+    }
+  }
+
+  state bulkout_ack {
+    need ACK {
+      success;
+    }
+  }
+}
