@@ -1,5 +1,5 @@
 var decoder = require('./packet_decoder.js');
-var transfer_machine = require('./transfer_machine.js');
+var usb_machines = require('./usb_machines.js');
 var structs = require('./structs.js');
 
 function ce(name, styles) {
@@ -245,7 +245,7 @@ function build_packet_line(p, num, height) {
   var desc = document.createElement('span');
   n.innerText = num; ts.innerText = p.t;
   f.innerText = p.f;
-  trans.innerText = p.transaction_id === null ? '-' : p.transaction_id;
+  trans.innerText = p.transaction_id === undefined ? '-' : p.transaction_id;
   desc.innerText = decoder.decode_packet_to_display_string(p.d);
   line.appendChild(n); line.appendChild(ts);
   line.appendChild(f); line.appendChild(trans);
@@ -429,19 +429,22 @@ function build_ui(packets, transactions) {
 }
 
 window.onload = function() {
-  var machine = new transfer_machine.TransferMachine();
-  machine.OnControlTransfer = function(id, addr, endp, setup, data) {
-    if (id !== transactions.length) throw "xx";
-    transactions.push([addr, endp, setup, data]);
+  var transaction_machine = new usb_machines.TransactionMachine();
+
+  transaction_machine.OnEmit = function(typename, success, out, state) {
+    //console.log(["emit", typename, out, state.id]);
+    //console.log(["emit", typename, success, state.id]);
+    var ids = state.ids;
+    for (var i = 0, il = ids.length; i < il; ++i)
+      packets[i].transaction_id = ids[i];
   };
 
-  console.log('Running state machine...');
+  console.log('Running transaction state machine...');
   for (var i = 0, il = packets.length; i < il; ++i) {
     var p = packets[i];
     var rp = p.d;
     var res = null;
-    if (rp.length !== 0) res = machine.process_packet(rp);
-    p.transaction_id = res;
+    if (rp.length !== 0) res = transaction_machine.process_packet(rp);
   }
   console.log('...done');
 

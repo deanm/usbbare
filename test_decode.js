@@ -1,6 +1,6 @@
 var fs = require('fs');
 var structs = require('./structs.js');
-var usb_machine = require('./usb_machine.js');
+var usb_machines = require('./usb_machines.js');
 
 if (process.argv.length > 2) {
   eval(fs.readFileSync(process.argv[2], 'utf8'));
@@ -20,7 +20,7 @@ function flatten(arr) {
   return arr.length === 0 ? arr : arr.reduce(function(a, b) { return a.concat(b); });
 }
 
-var transaction_machine = new usb_machine.TransactionMachine();
+var transaction_machine = new usb_machines.TransactionMachine();
 
 /*
 function OnControlTransfer(addr, endp, setup, data) {
