@@ -57,8 +57,11 @@ div.usbbare-p-list>div.selected span:nth-child(4) {
   color: #00c;
 }
 
-div.usbbare-tr-list span {
+div.usbbare-tr-list {
   padding-top: 1.5em;
+}
+
+div.usbbare-tr-list span {
   display: inline-block;
   padding-right: 0.5em;
   border-right: 1px solid #ddd;
