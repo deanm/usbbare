@@ -1,6 +1,6 @@
 var fs = require('fs');
 var parser = require('./structs_parser.js');
-var lexer = new parser.Lexer(fs.readFileSync(__dirname + '/structs.defs', 'utf8'));
+var lexer = new parser.Lexer(fs.readFileSync(__dirname + '/usb.structs', 'utf8'));
 var parser = new parser.Parser(lexer);
 
 var nodes = parser.parse();
