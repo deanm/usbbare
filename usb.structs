@@ -101,13 +101,242 @@ struct {
   uint bMaxPower:8;
 } StandardConfigurationDescriptor;
 
+enum {
+  DefinedAtInterfaceLevel = 0;
+  Audio = 1;
+  Communications = 2;
+  HumanInterfaceDevice = 3;
+  PhysicalInterfaceDevice = 5;
+  Imaging = 6;
+  Printer = 7;
+  MassStorage = 8;
+  Hub = 9;
+  CDCData = 10;
+  ChipSmartCard = 11;
+  ContentSecurity = 13;
+  Video = 14;
+  Xbox = 88;
+  Diagnostic = 220;
+  Wireless = 224;
+  MiscellaneousDevice = 239;
+  ApplicationSpecificInterface = 254;
+  VendorSpecificClass = 255;
+} InterfaceClass;
+
+enum {
+  ControlDevice = 1;
+  Streaming = 2;
+  MIDIStreaming = 3;
+} InterfaceSubclassAudio;
+
+enum {
+  DirectLine = 1;
+  Abstractmodem = 2;
+  Telephone = 3;
+  MultiChannel = 4;
+  CAPIControl = 5;
+  EthernetNetworking = 6;
+  ATMNetworking = 7;
+  WirelessHandsetControl = 8;
+  DeviceManagement = 9;
+  MobileDirectLine = 10;
+  OBEX = 11;
+  EthernetEmulation = 12;
+} InterfaceSubclassCommunications;
+
+enum {
+  None = 0;
+  ATCommandsv25ter = 1;
+  ATCommandsPCCA101 = 2;
+  ATCommandsPCCA101Wakeup = 3;
+  ATCommandsGSM = 4;
+  ATCommands3G = 5;
+  ATCommandsCDMA = 6;
+  DefinedByCommandSetDescriptor = 254;
+  VendorSpecificMSFTRNDIS = 255;
+} InterfaceSubclassCommunicationsInterfaceAbstractmodem;
+
+enum {
+  EthernetEmulationEEM = 7;
+} InterfaceSubclassCommunicationsInterfaceEthernetEmulation;
+
+enum {
+  NoSubclass = 0;
+  BootInterfaceSubclass = 1;
+} InterfaceSubclassHumanInterfaceDevice;
+
+enum {
+  None = 0;
+  Keyboard = 1;
+  Mouse = 2;
+} InterfaceSubclassHumanInterfaceDeviceInterfaceNoSubclass;
+
+enum {
+  None = 0;
+  Keyboard = 1;
+  Mouse = 2;
+} InterfaceSubclassHumanInterfaceDeviceInterfaceBootInterfaceSubclass;
+
+enum {
+  StillImageCapture = 1;
+} InterfaceSubclassImaging;
+
+enum {
+  PictureTransferProtocolPIMA15470 = 1;
+} InterfaceSubclassImagingInterfaceStillImageCapture;
+
+enum {
+  Printer = 1;
+} InterfaceSubclassPrinter;
+
+enum {
+  ReservedUndefined = 0;
+  Unidirectional = 1;
+  Bidirectional = 2;
+  IEEE12844CompatibleBidirectional = 3;
+  VendorSpecific = 255;
+} InterfaceSubclassPrinterInterfacePrinter;
+
+enum {
+  RBCtypicallyFlash = 1;
+  SFF8020iMMC2ATAPI = 2;
+  QIC157 = 3;
+  FloppyUFI = 4;
+  SFF8070i = 5;
+  SCSI = 6;
+} InterfaceSubclassMassStorage;
+
+enum {
+  ControlBulkInterrupt = 0;
+  ControlBulk = 1;
+  BulkOnly = 80;
+} InterfaceSubclassMassStorageInterfaceRBCtypicallyFlash;
+
+enum {
+  ControlBulkInterrupt = 0;
+  ControlBulk = 1;
+  BulkOnly = 80;
+} InterfaceSubclassMassStorageInterfaceFloppyUFI;
+
+enum {
+  ControlBulkInterrupt = 0;
+  ControlBulk = 1;
+  BulkOnly = 80;
+} InterfaceSubclassMassStorageInterfaceSCSI;
+
+enum {
+  Unused = 0;
+} InterfaceSubclassHub;
+
+enum {
+  FullSpeedorRootHub = 0;
+  SingleTT = 1;
+  TTPerPort = 2;
+} InterfaceSubclassHubInterfaceUnused;
+
+enum {
+  Unused = 0;
+} InterfaceSubclassCDCData;
+
+enum {
+  I430ISDNBRI = 48;
+  HDLC = 49;
+  Transparent = 50;
+  Q921M = 80;
+  Q921 = 81;
+  Q921TM = 82;
+  V42bis = 144;
+  Q932EuroISDN = 145;
+  V120V24RateISDN = 146;
+  CAPI20 = 147;
+  HostBasedDriver = 253;
+  CDCPUF = 254;
+  VendorSpecific = 255;
+} InterfaceSubclassCDCDataInterfaceUnused;
+
+enum {
+  Undefined = 0;
+  VideoControl = 1;
+  VideoStreaming = 2;
+  VideoInterfaceCollection = 3;
+} InterfaceSubclassVideo;
+
+enum {
+  Controller = 66;
+} InterfaceSubclassXbox;
+
+enum {
+  ReprogrammableDiagnostics = 1;
+} InterfaceSubclassDiagnostic;
+
+enum {
+  USB2Compliance = 1;
+} InterfaceSubclassDiagnosticInterfaceReprogrammableDiagnostics;
+
+enum {
+  RadioFrequency = 1;
+  WirelessUSBWireAdapter = 2;
+} InterfaceSubclassWireless;
+
+enum {
+  Bluetooth = 1;
+  UltraWideBandRadioControl = 2;
+  RNDIS = 3;
+} InterfaceSubclassWirelessInterfaceRadioFrequency;
+
+enum {
+  HostWireAdapterControlDataStreaming = 1;
+  DeviceWireAdapterControlDataStreaming = 2;
+  DeviceWireAdapterIsochronousStreaming = 3;
+} InterfaceSubclassWirelessInterfaceWirelessUSBWireAdapter;
+
+enum {
+  Unknown1 = 1;
+  Unknown2 = 2;
+  Unknown3 = 3;
+  USB3Vision = 5;
+} InterfaceSubclassMiscellaneousDevice;
+
+enum {
+  MicrosoftActiveSync = 1;
+  PalmSync = 2;
+} InterfaceSubclassMiscellaneousDeviceInterfaceUnknown1;
+
+enum {
+  InterfaceAssociation = 1;
+  WireAdapterMultifunctionPeripheral = 2;
+} InterfaceSubclassMiscellaneousDeviceInterfaceUnknown2;
+
+enum {
+  CableBasedAssociation = 1;
+} InterfaceSubclassMiscellaneousDeviceInterfaceUnknown3;
+
+enum {
+  DeviceFirmwareUpdate = 1;
+  IRDABridge = 2;
+  TestAndMeasurement = 3;
+} InterfaceSubclassApplicationSpecificInterface;
+
+enum {
+  TMC = 1;
+  USB488 = 2;
+} InterfaceSubclassApplicationSpecificInterfaceInterfaceTestAndMeasurement;
+
+enum {
+  VendorSpecificSubclass = 255;
+} InterfaceSubclassVendorSpecificClass;
+
+enum {
+  VendorSpecificProtocol = 255;
+} InterfaceSubclassVendorSpecificClassInterfaceVendorSpecificSubclass;
+
 struct {
   uint bLength:8;
   uint bDescriptorType:8;
   uint bInterfaceNumber:8;
   uint bAlternateSetting:8;
   uint bNumEndpoints:8;
-  uint bInterfaceClass:8;
+  InterfaceClass bInterfaceClass:8;
   uint bInterfaceSubClass:8;
   uint bInterfaceProtocol:8;
   uint iInterface:8;

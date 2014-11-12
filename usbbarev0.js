@@ -121,6 +121,23 @@ function build_table_from_fields(f) {
   return table;
 }
 
+// Bit gnarly, try to look up subclass and interface names.
+function look_up_interface_and_set_names(iface) {
+  if (!iface) return;
+  var iface1 = iface.get_display_at(5);
+  if (!iface1) return;
+  var iface2 = structs["eInterfaceSubclass" + iface1];
+  if (!iface2) return;
+  var iface3 = iface2[iface.get_value_at(6)];
+  if (!iface3) return;
+  iface.set_display_at(6, iface3);
+  var iface4 = structs["eInterfaceSubclass" + iface1 + "Interface" + iface3];
+  if (!iface4) return;
+  var iface5 = iface4[iface.get_value_at(7)];
+  if (!iface5) return;
+  iface.set_display_at(7, iface5);
+}
+
 function disect_config_desc(n, flat_data) {
   var descriptor = new structs.Fields();
   if (structs.parse_StandardConfigurationDescriptor(
@@ -146,6 +163,10 @@ function disect_config_desc(n, flat_data) {
       return;
     }
     n.appendChild(text_div("INTERFACE", 2));
+
+    // Gnarly, try to look up subclass and interface names.
+    look_up_interface_and_set_names(iface);
+
     n.appendChild(build_table_from_fields(iface));
     pos += iface.get_value("bLength");
 

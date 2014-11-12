@@ -139,6 +139,9 @@ console.log(
   "  this.get_display_at = function(i) {\n" +
   "    return fields[i << 2 | 3];\n" +
   "  };\n" +
+  "  this.set_display_at = function(i, v) {\n" +
+  "    fields[i << 2 | 3] = v;\n" +
+  "  };\n" +
   "  this.debug_string = function(prefix) {\n" +
   "    var ftext = '';\n" +
   "    for (var i = 0, il = fields.length; i < il; i += 4) {\n" +
