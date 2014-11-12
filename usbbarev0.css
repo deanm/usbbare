@@ -13,12 +13,15 @@ div {
   outline: 0;  /* no focus ring */
 }
 
-div.selected {
-  background-color: #eee;
+div.usbbare-lazytable-container {
+  margin-top: 1.5em;
+  position: relative;
+  top: 0;
+  left: 0;
+  z-index: 1;
 }
 
 div.usbbare-p-list {
-  padding-top: 1.5em;
   cursor: default;
   width: 42em;
 }
@@ -64,7 +67,6 @@ div.usbbare-p-list>div>span:nth-child(5) {
 }
 
 div.usbbare-tr-list {
-  padding-top: 1.5em;
   cursor: default;
   width: 42em;
 }

@@ -407,25 +407,33 @@ function LazyTable(cell_height, cells) {
   var expanded_id = null;
   var expanded_node = null;
 
+  var select_div = ce('div',
+      {backgroundColor: "#eee", width: "40em", height: "18px", display: "none",
+       position: "absolute", top: 0, left: 0, zIndex: -1});
+
   var selected = null;
 
+  var i = 0;
+
   this.select = function(p) { 
-    if (p !== null && p >= num_cells) p = num_cells-1;
-    if (p !== null && p < 0) p = 0;
-    var needs_layout = p !== selected && p >= a && p < b;
+    if (p === selected) return;
+
+    if (p === null) {
+      select_div.style.display = "none";
+      selected = p;
+      return;
+    }
+
+    if (p >= num_cells) p = num_cells-1;
+    if (p < 0) p = 0;
+
+    select_div.style.display = "block";
+    select_div.style.top = (p * cell_height) + 'px';
     selected = p;
-    if (needs_layout) {
-      empty_layout();
-      layout();
-    }
   };
+
   this.clear_selection = function() {
-    var needs_layout = selected !== null && selected >= a && selected < b;
-    selected = null;
-    if (needs_layout) {
-      empty_layout();
-      layout();
-    }
+    this.select(null);
   };
 
   this.build_cell = function(id) {
@@ -447,8 +455,6 @@ function LazyTable(cell_height, cells) {
   this.build_cell_internal = function(id) {
     var cell = this.build_cell(id);
     cell.cell_id = id;
-    console.log([id, selected]);
-    if (id === selected) cell.className = "selected";
     return cell;
   };
 
@@ -544,7 +550,14 @@ function LazyTable(cell_height, cells) {
   div.appendChild(hole1);
 
   this.layout = function() { layout(); };
+
+  var container = ce('div');
+  container.className = "usbbare-lazytable-container";
+  container.appendChild(select_div);
+  container.appendChild(div);
+
   this.div = div;
+  this.container = container;
 }
 
 function build_nav_bar(cb) {
@@ -593,6 +606,7 @@ function build_nav_bar(cb) {
   div.appendChild(packets);
   div.appendChild(transactions);
   div.appendChild(transfers);
+
   return div;
 }
 
@@ -690,10 +704,10 @@ function build_ui(
   var cur_view_node = view_nodes[0];
 
   var nav_bar = build_nav_bar(function(old_id, new_id, orb_id) {
-    document.body.removeChild(cur_view_node.div);
+    document.body.removeChild(cur_view_node.container);
     var new_node = view_nodes[new_id];
     if (Array.isArray(new_node)) new_node = new_node[orb_id];
-    document.body.appendChild(new_node.div);
+    document.body.appendChild(new_node.container);
     new_node.clear_selection();
     new_node.layout();
     cur_view_node = new_node;
@@ -703,7 +717,7 @@ function build_ui(
 
   document.body.appendChild(nav_bar);
   document.body.appendChild(panel);
-  document.body.appendChild(cur_view_node.div);
+  document.body.appendChild(cur_view_node.container);
 }
 
 window.onload = function() {
