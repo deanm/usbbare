@@ -11,11 +11,11 @@ function TransactionMachine() {
   var next_id = 0;
 
   var cb = {
-    emit: function(typename, success, out, state) {
-      if (this_.OnEmit !== null) this_.OnEmit(typename, success, out, state);
+    emit: function(transtype, typename, success, out, state) {
+      if (this_.OnEmit !== null) this_.OnEmit(transtype, typename, success, out, state);
     },
     spawn: function(statename, transtype, typename, state) {
-      console.log(['spawn', statename, transtype, typename]);
+      //console.log(['spawn', statename, transtype, typename]);
       name = "state_" + typename + "_" + statename;
       if (!(name in usb_states)) throw name;
       states.push({

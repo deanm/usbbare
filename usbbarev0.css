@@ -3,15 +3,17 @@
 @import url(http://fonts.googleapis.com/css?family=Inconsolata);
 
 body {
-  padding-top: 1em;
-}
-
-div.usbbare-pd {
+  padding: 0;
+  margin: 0;
   font-family: 'Inconsolata', 'Inconsolata-dz', fixed;
   font-weight: 400;
 }
 
-div.usbbare-pd>div>span:first-child {
+div.usbbare-p-list {
+  padding-top: 1.5em;
+}
+
+div.usbbare-p-list>div>span:first-child {
   display: inline-block;
   width: 4em;
   text-align: right;
@@ -19,7 +21,7 @@ div.usbbare-pd>div>span:first-child {
   border-right: 1px solid #ddd;
 }
 
-div.usbbare-pd>div>span:nth-child(2) {
+div.usbbare-p-list>div>span:nth-child(2) {
   display: inline-block;
   width: 6em;
   text-align: right;
@@ -27,7 +29,7 @@ div.usbbare-pd>div>span:nth-child(2) {
   border-right: 1px solid #ddd;
 }
 
-div.usbbare-pd>div>span:nth-child(3) {
+div.usbbare-p-list>div>span:nth-child(3) {
   display: inline-block;
   width: 2em;
   padding-left: 2em;
@@ -36,7 +38,7 @@ div.usbbare-pd>div>span:nth-child(3) {
   border-right: 1px solid #ddd;
 }
 
-div.usbbare-pd>div>span:nth-child(4) {
+div.usbbare-p-list>div>span:nth-child(4) {
   display: inline-block;
   width: 2em;
   padding-left: 2em;
@@ -45,14 +47,44 @@ div.usbbare-pd>div>span:nth-child(4) {
   border-right: 1px solid #ddd;
 }
 
-div.usbbare-pd>div>span:nth-child(5) {
+div.usbbare-p-list>div>span:nth-child(5) {
   display: inline-block;
   width: 20em;
   padding-left: 1em;
 }
 
-div.usbbare-pd>div.selected span:nth-child(4) {
+div.usbbare-p-list>div.selected span:nth-child(4) {
   color: #00c;
+}
+
+div.usbbare-tr-list span {
+  padding-top: 1.5em;
+  display: inline-block;
+  padding-right: 0.5em;
+  border-right: 1px solid #ddd;
+}
+
+div.usbbare-tr-list>div>span:first-child {
+  width: 4em;
+  text-align: right;
+}
+
+div.usbbare-tr-list>div>span:nth-child(2) {
+  width: 6em;
+  text-align: right;
+}
+
+div.usbbare-tr-list>div>span:nth-child(3) {
+  width: 2em;
+  padding-left: 2em;
+  text-align: right;
+  padding-right: 4px;
+}
+
+div.usbbare-tr-list>div>span:nth-child(4) {
+  display: inline-block;
+  width: 20em;
+  padding-left: 1em;
 }
 
 div.usbbare-p {
@@ -67,8 +99,6 @@ span.usbbare-bitfield:hover {
 }
 
 div.usbbare-tp {
-  font-family: 'Inconsolata', 'Inconsolata-dz', fixed;
-  font-weight: 400;
   border: 1px solid #ddd;
   padding: 0.5em;
 
@@ -94,4 +124,14 @@ div.usbbare-tp td {
 div.usbbare-tp td:first-child {
   padding: 0;
   padding-right: 1em;
+}
+
+div.usbbare-nav {
+  z-index: 2;
+  position: fixed;
+  top: 0;
+  width: 100%;
+  background-color: #ddd;
+  height: 1.3em;
+  padding-left: 2em;
 }

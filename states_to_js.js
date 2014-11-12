@@ -138,11 +138,11 @@ function generate_rule_code(locals, transtype, typename, rule, pre) {
             litstr(transtype) + ", " + litstr(typename) + ", " + "_state);\n";
         break;
       case "success":
-        code += pre + "  _cb.emit(" + litstr(transtype) + ", true, _out, _state);\n";
+        code += pre + "  _cb.emit(" + litstr(transtype) + ", " + litstr(typename) + ", true, _out, _state);\n";
         if (next !== "kPass") throw "xx"; next = "kEnd";
         break;
       case "failed":
-        code += pre + "  _cb.emit(" + litstr(transtype) + ", false, _out, _state);\n";
+        code += pre + "  _cb.emit(" + litstr(transtype) + ", " + litstr(typename) + ", false, _out, _state);\n";
         if (next !== "kPass") throw "xx"; next = "kEnd";
         break;
       case "capture":
@@ -162,7 +162,7 @@ function generate_rule_code(locals, transtype, typename, rule, pre) {
   code += pre + "}\n";
   // TODO: check was last rule
   if (rule.type === "need") {  // Same as calling failed
-    code += pre + "_cb.emit(" + litstr(transtype) + ", false, _out, _state);\n";
+    code += pre + "_cb.emit(" + litstr(transtype) + ", " + litstr(typename) + ", false, _out, _state);\n";
     code += pre + "return {next: kEnd, next_name: \"kEnd\"};\n";
   }
   return code;

@@ -245,10 +245,32 @@ function build_packet_line(p, num, height) {
   var desc = document.createElement('span');
   n.innerText = num; ts.innerText = p.t;
   f.innerText = p.f;
-  trans.innerText = p.transaction_id === undefined ? '-' : p.transaction_id;
+  if (p.transaction_id === undefined) {
+    trans.innerText = '-';
+  } else {
+    trans.innerText = p.transaction_id >> 1;
+    trans.style.color = (p.transaction_id & 1) ? "#090" : "#900";
+  }
   desc.innerText = decoder.decode_packet_to_display_string(p.d);
   line.appendChild(n); line.appendChild(ts);
   line.appendChild(f); line.appendChild(trans);
+  line.appendChild(desc);
+  return line;
+}
+
+function build_transaction_line(tr, num, height) {
+  var line = document.createElement('div');
+  line.style.height = height;
+  var n = document.createElement('span');
+  var ts = document.createElement('span');
+  var trans = document.createElement('span');
+  var desc = document.createElement('span');
+  n.style.color = (tr.success === true) ? "#090" : "#900";
+  n.innerText = num; ts.innerText = tr.t;
+  //f.innerText = '';
+  desc.innerText = tr.typename;
+  line.appendChild(n); line.appendChild(ts);
+  line.appendChild(trans);
   line.appendChild(desc);
   return line;
 }
@@ -371,18 +393,41 @@ function LazyTable(cell_height, cells) {
   this.div = div;
 }
 
-function build_nav_bar() {
-  var div = ce('div', {
-    zIndex: 2,
-    position: 'fixed',
-    top: 0,
-    width: '100%',
-    backgroundColor: 'blue'});
-  div.appendChild(document.createTextNode('nav'));
-  return div;
+function text_span(str, opts) {
+  var e = ce('span', opts);
+  e.appendChild(document.createTextNode(str));
+  return e;
 }
 
-var transactions = [ ];
+function build_nav_bar(cb) {
+  var div = ce('div');
+  div.className = "usbbare-nav";
+  var packets = text_span('packets', {paddingRight: '2em', textDecoration: 'underline', cursor: 'default'});
+  var transactions = text_span('transactions', {paddingRight: '2em', cursor: 'default'});
+
+  var cur_view = 0;
+
+  var link_nodes = [packets, transactions];
+
+  packets.addEventListener('click', function() {
+    link_nodes[cur_view].style.textDecoration = 'none';
+    if (cur_view !== 0) cb(cur_view, 0);
+    cur_view = 0;
+    link_nodes[cur_view].style.textDecoration = 'underline';
+  });
+
+  transactions.addEventListener('click', function() {
+    link_nodes[cur_view].style.textDecoration = 'none';
+    if (cur_view !== 1) cb(cur_view, 1);
+    cur_view = 1;
+    link_nodes[cur_view].style.textDecoration = 'underline';
+  });
+
+  div.appendChild(packets);
+  div.appendChild(transactions);
+  div.appendChild(text_span('transfers'));
+  return div;
+}
 
 function build_ui(packets, transactions) {
   var transaction_panel = document.createElement('div');
@@ -394,12 +439,17 @@ function build_ui(packets, transactions) {
 
   var kCellHeight = 18;
   var packet_view = new LazyTable(kCellHeight, packets);
-  packet_view.div.className = "usbbare-pd";
+  packet_view.div.className = "usbbare-p-list";
 
   packet_view.build_cell = function(id) {
     var cell = build_packet_line(packets[id], id, kCellHeight + 'px');
     cell.cell_id = id;
     return cell;
+  };
+
+  packet_view.build_expanded = function(id) {
+    build_packet_display(packet_display_node, packets[id]);
+    return packet_display_node;
   };
 
 /*
@@ -416,27 +466,54 @@ function build_ui(packets, transactions) {
         }
 */
 
-  packet_view.build_expanded = function(id) {
-    build_packet_display(packet_display_node, packets[id]);
-    return packet_display_node;
+
+  var transaction_view = new LazyTable(kCellHeight, transactions);
+  transaction_view.div.className = "usbbare-tr-list";
+  transaction_view.build_cell = function(id) {
+    var tr = transactions[id];
+    var cell = build_transaction_line(transactions[id], tr.id, kCellHeight + 'px');
+    cell.cell_id = id;
+    return cell;
   };
 
   packet_view.layout();
+  transaction_view.layout()
 
-  document.body.appendChild(build_nav_bar());
+  var view_nodes = [packet_view.div, transaction_view.div];
+  document.body.appendChild(build_nav_bar(function(old_id, new_id) {
+    document.body.removeChild(view_nodes[old_id]);
+    document.body.appendChild(view_nodes[new_id]);
+  }));
 
   document.body.appendChild(packet_view.div);
+  //document.body.appendChild(transaction_view.div);
 }
 
 window.onload = function() {
   var transaction_machine = new usb_machines.TransactionMachine();
 
-  transaction_machine.OnEmit = function(typename, success, out, state) {
+  var transactions = [ ];
+
+  transaction_machine.OnEmit = function(transtype, typename, success, out, state) {
+    var transaction_id = state.id;
     //console.log(["emit", typename, out, state.id]);
     //console.log(["emit", typename, success, state.id]);
     var ids = state.ids;
-    for (var i = 0, il = ids.length; i < il; ++i)
-      packets[i].transaction_id = ids[i];
+    var succ_bit = success === true ? 1 : 0;
+
+    for (var i = 0, il = ids.length; i < il; ++i) {
+      var packet_id = ids[i];
+      if (packet_id > packets.length || packet_id < 0) throw packet_id;
+      if (packets[packet_id] === undefined) throw packet_id;
+      packets[packet_id].transaction_id = transaction_id << 1 | succ_bit;
+    }
+
+    transactions.push({id: transaction_id,
+                       typename: typename,
+                       success: success,
+                       out: out,
+                       ids: ids,
+                       t: packets[ids[0]].t /* TODO handle overflow */})
   };
 
   console.log('Running transaction state machine...');
@@ -444,9 +521,9 @@ window.onload = function() {
     var p = packets[i];
     var rp = p.d;
     var res = null;
-    if (rp.length !== 0) res = transaction_machine.process_packet(rp);
+    if (rp.length !== 0) res = transaction_machine.process_packet(rp, i);
   }
   console.log('...done');
 
-  build_ui(packets, [ ]);
+  build_ui(packets, transactions);
 };
