@@ -523,8 +523,8 @@ function LazyTable(cell_height, cells) {
 
     if (selected !== null) {
       var new_pos = selected + (e.which === 40 ? 1 : -1);
-      new_node = this_.build_expanded(new_pos);
       this_.select(new_pos);
+      new_node = this_.build_expanded(selected);
     }
 
     e.preventDefault();
