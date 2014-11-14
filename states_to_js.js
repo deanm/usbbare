@@ -148,8 +148,7 @@ function generate_rule_code(locals, transtype, typename, rule, pre) {
         break;
       case "append":
         var sargs = args.map(scope_mapper);
-        //code += pre + "  " + args[0] + " = " + args[0] + ".concat(" + args[1] + ");\n";
-        code += pre + "  " + sargs[0] + " = [" + sargs[0] + ", " + sargs[1] + "];\n";
+        code += pre + "  " + sargs[0] + " = " + sargs[0] + ".concat([" + sargs[1] + ", _meta]);\n";
         break;
       case "spawn":
         var sargs = args.slice(1).map(scope_mapper);

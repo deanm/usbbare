@@ -96,12 +96,36 @@ function hex_dump(data, cols) {
   return str;
 }
 
-function flatten(arr, out) {
-  for (var i = 0, il = arr.length; i < il; ++i) {
-    var a = arr[i];
-    if (Array.isArray(a)) flatten(a, out);
-    else out.push(a);
+function hex_dump_chunked(data, cols) {
+  var str = '';
+  var lp = 0;
+  for (var j = 0, jl = data.length; j < jl; j += 2) {
+    var subdata = data[j];  // TODO handle meta data.
+    for (var i = 0, il = subdata.length; i < il; ++i) {
+      var hex = subdata[i].toString(16);
+      if (lp >= cols) {
+        str += "\n";
+        lp = 0;
+      }
+      if (hex.length < 2) hex = "0" + hex;
+      if (lp !== 0) str += ' ';
+      str += hex;
+      ++lp;
+    }
   }
+  return str;
+}
+
+function flatten_chunked(data) {
+  var total_len = 0;
+  for (var i = 0, il = data.length; i < il; i += 2) total_len += data[i].length;
+  var flat = new Uint8Array(total_len);
+  var p = 0;
+  for (var i = 0, il = data.length; i < il; i += 2) {
+    flat.set(data[i], p);
+    p += data[i].length;
+  }
+  return flat;
 }
 
 function build_table_from_fields(f) {
@@ -218,9 +242,7 @@ function build_transaction_display(n, tr) {
       continue;
     }
     if (key === "data" && Array.isArray(out[key])) {
-      var flat_data = [ ];
-      flatten(out[key], flat_data);
-      n.appendChild(text_div(hex_dump(flat_data, 16)));
+      n.appendChild(text_div(hex_dump_chunked(out[key], 16)));
       continue
     }
     n.appendChild(text_div(key + ': ' + out[key]));
@@ -231,9 +253,8 @@ function build_transaction_display(n, tr) {
 
 function build_control_transfer_display(n, tr) {
   var data = tr.out.data;
-  var flat_data = [ ];
-  if (data !== null) flatten(data, flat_data);
-  if (data === null || flat_data.length === 0) return;
+  if (data === null || data.length === 0) return;
+  var flat_data = flatten_chunked(data);
 
   var setup = tr.out.setup;
 
@@ -284,10 +305,11 @@ function build_transfer_display(n, tr) {
     build_control_transfer_display(n, tr);
 
   if (Array.isArray(out.data)) {
-    var flat_data = [ ];
-    flatten(out.data, flat_data);
-    n.appendChild(text_div("Data length: " + flat_data.length, 2));
-    n.appendChild(text_div(hex_dump(flat_data, 16), 0, 15));
+    var num_chunks = out.data.length / 2;
+    var total_len = 0;
+    for (var i = 0, il = out.data.length; i < il; i += 2) total_len += out.data[i].length;
+    n.appendChild(text_div("Data num chunks: " + num_chunks + " total length: " + total_len, 2));
+    n.appendChild(text_div(hex_dump_chunked(out.data, 16), 0, 15));
   }
 
   //n.appendChild(text_span(JSON.stringify(tr)));
