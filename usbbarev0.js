@@ -864,8 +864,6 @@ function process_and_init(rawdata) {
   var transfers_fail = [ ];
 
   transfer_machine.OnEmit = function(transtype, typename, success, out, state) {
-    return;
-
     var transfer_id = transfers.length;
     var ids = state.ids;
     var succ_bit = success === true ? 1 : 0;
