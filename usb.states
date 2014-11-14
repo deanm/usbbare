@@ -20,13 +20,6 @@ transaction SetupTransaction : ADDR, EndPoint, setup {
     }
   }
 
-  state setup_data {
-    need DATA0 data.length:8 parse:setup {
-      capture setup setup;
-      transition setup_ack;
-    }
-  }
-
   state ssplit_setup : hub, port {
     want SETUP {
       capture ADDR ADDR;
@@ -35,6 +28,13 @@ transaction SetupTransaction : ADDR, EndPoint, setup {
     }
     need {
       die;  // Don't cause a failed transaction just from the SSPLIT.
+    }
+  }
+
+  state setup_data {
+    need DATA0 data.length:8 parse:setup {
+      capture setup setup;
+      transition setup_ack;
     }
   }
 
@@ -65,6 +65,7 @@ transaction SetupTransaction : ADDR, EndPoint, setup {
 
   state csplit_handshake : addr, endp, hub, port {
     want NYET {
+      pop packets; pop packets; pop packets;  // Clean up the packet IDs.
       transition csplit addr endp hub port;
     }
     need ACK {
@@ -81,11 +82,56 @@ transaction SetupTransaction : ADDR, EndPoint, setup {
 
 transaction BulkTransactionIn : ADDR, EndPoint, data {
   state bulkin_run {
+    want SSPLIT {
+      spawn bulkin_run;
+      transition ssplit_in HubAddr Port;
+    }
+
     want IN {
       spawn bulkin_run;
       capture ADDR ADDR;
       capture EndPoint EndPoint;
       transition bulkin_data;
+    }
+  }
+
+  state ssplit_in : hub, port {
+    want IN {
+      capture ADDR ADDR;
+      capture EndPoint EndPoint;
+      transition ssplit_ack ADDR EndPoint hub port;
+    }
+    need {
+      die;  // Don't cause a failed transaction just from the SSPLIT.
+    }
+  }
+
+  state ssplit_ack : addr, endp, hub, port {
+    need ACK {
+      transition csplit addr endp hub port;
+    }
+  }
+
+  state csplit : addr, endp, hub, port {
+    want CSPLIT HubAddr:hub Port:port {
+      transition csplit_in addr endp hub port;
+    }
+  }
+
+  state csplit_in : addr, endp, hub, port {
+    want IN ADDR:addr EndPoint:endp {
+      transition csplit_data addr endp hub port;
+    }
+  }
+
+  state csplit_data : addr, endp, hub, port {
+    want NYET {
+      pop packets; pop packets; pop packets;  // Clean up the packet IDs.
+      transition csplit addr endp hub port;
+    }
+    need pid_type: DATA {
+      capture data data;
+      success;
     }
   }
 

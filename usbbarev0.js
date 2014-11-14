@@ -916,9 +916,6 @@ function process_and_init(rawdata) {
     var succ_bit = success === true ? 1 : 0;
     var transaction_id = transactions.length << 1 | succ_bit;
 
-    if (success === true && pkts.length !== 3)
-      console.log("Warning: Successful transaction doesn't have 3 packets: " + transaction_id);
-
     /*
     for (var i = 0, il = pkts.length; i < il; ++i) {
       pkts[i].transaction_id = transaction_id;

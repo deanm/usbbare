@@ -177,6 +177,9 @@ function generate_rule_code(locals, transtype, typename, rule, pre) {
         code += pre + "  _out." + args[0] + " = " + scope_mapper(args[1]) + ";" +
                 " _out." + args[0] + "_m = _meta;\n";
         break;
+      case "pop":
+        code += pre + "  _state." + args[0] + ".pop();\n";
+        break;
       case "die":
         if (next !== "kPass") throw "xx"; next = "kEnd";
         break;
