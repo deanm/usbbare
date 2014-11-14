@@ -327,12 +327,23 @@ function build_packet_display(n, p) {
   }
 
   //n.appendChild(text_div(JSON.stringify(d)));
-  var pid_type_str = ["special", "token", "handshake", "data"][d.pid_type];
-  var pid_name_str = kPidNameTable[d.pid_type << 2 | d.pid_name];
 
-  n.appendChild(make_field("PID", 4,
-    [make_bit_field_node("pid_type", d.pid_type + " (" + pid_type_str + ")", to_bin_str(2, d.pid_type)),
-     make_bit_field_node("pid_name", d.pid_name + " (" + pid_name_str + ")", to_bin_str(2, d.pid_name))]));
+  var pid = g_rawdata[p.p+7];
+  var xor = 0;
+  for (var i = 0; i < 2; ++i) {
+    var pid_type = pid & 3;
+    var pid_name = (pid >> 2) & 3;
+    var pid_type_str = ["special", "token", "handshake", "data"][(pid_type^xor) & 3];
+    var pid_name_str = kPidNameTable[(pid^xor) & 0xf];
+
+    n.appendChild(make_field(i === 0 ? "PID" : "NPID", 4,
+      [make_bit_field_node("pid_type", ((pid_type^xor)&3) + " (" + pid_type_str + ")",
+                           to_bin_str(2, pid_type)),
+       make_bit_field_node("pid_name", ((pid_name^xor)&3) + " (" + pid_name_str + ")",
+                           to_bin_str(2, pid_name))]));
+    pid >>= 4;
+    xor = 0xf;
+  }
 
   if (d.pid_type === 1 || (d.pid_type === 0 && d.pid_name === 1)) {  // Token
     if (d.pid_type === 1 && d.pid_name === 1) {  // SOF
