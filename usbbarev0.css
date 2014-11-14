@@ -21,80 +21,29 @@ div.usbbare-lazytable-container {
   z-index: 1;
 }
 
-div.usbbare-p-list {
+div.usbbare-list {
   cursor: default;
   width: 42em;
 }
 
-div.usbbare-p-list>div>span:first-child {
+div.usbbare-list span {
   display: inline-block;
+  padding-right: 0.5em;
+}
+
+div.usbbare-row>span:first-child {
   width: 4em;
   text-align: right;
-  padding-right: 0.5em;
   border-right: 1px solid #ddd;
 }
 
-div.usbbare-p-list>div>span:nth-child(2) {
-  display: inline-block;
+div.usbbare-row>span:nth-child(2) {
   width: 6em;
   text-align: right;
-  padding-right: 0.5em;
   border-right: 1px solid #ddd;
 }
 
-div.usbbare-p-list>div>span:nth-child(3) {
-  display: inline-block;
-  width: 2em;
-  padding-left: 2em;
-  text-align: right;
-  padding-right: 4px;
-  border-right: 1px solid #ddd;
-}
-
-div.usbbare-p-list>div>span:nth-child(4) {
-  display: inline-block;
-  width: 2em;
-  padding-left: 2em;
-  text-align: right;
-  padding-right: 4px;
-  border-right: 1px solid #ddd;
-}
-
-div.usbbare-p-list>div>span:nth-child(5) {
-  display: inline-block;
-  width: 20em;
-  padding-left: 1em;
-}
-
-div.usbbare-tr-list {
-  cursor: default;
-  width: 42em;
-}
-
-div.usbbare-tr-list span {
-  display: inline-block;
-  padding-right: 0.5em;
-  border-right: 1px solid #ddd;
-}
-
-div.usbbare-tr-list>div>span:first-child {
-  width: 4em;
-  text-align: right;
-}
-
-div.usbbare-tr-list>div>span:nth-child(2) {
-  width: 6em;
-  text-align: right;
-}
-
-div.usbbare-tr-list>div>span:nth-child(3) {
-  width: 2em;
-  padding-left: 2em;
-  text-align: right;
-  padding-right: 4px;
-}
-
-div.usbbare-tr-list>div>span:nth-child(4) {
+div.usbbare-row>span:nth-child(3) {
   display: inline-block;
   width: 20em;
   padding-left: 1em;

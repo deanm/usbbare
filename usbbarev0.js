@@ -389,62 +389,58 @@ function build_packet_display(n, p) {
   }
 }
 
-function build_packet_line(p, height) {
-  var line = document.createElement('div');
-  line.style.height = height;
+function build_packet_row(p, height) {
+  var row = document.createElement('div');
+  row.className = 'usbbare-row';
+  row.style.height = height;
+
   var n = document.createElement('span');
   var ts = document.createElement('span');
-  var f = document.createElement('span');
-  var trans = document.createElement('span');
   var desc = document.createElement('span');
+
   n.innerText = p.id >> 1;
   n.style.color = (p.id & 1) ? "#090" : "#900";
+
   ts.innerText = p.t;
-  f.innerText = p.f;
-  if (p.transaction_id === undefined) {
-    trans.innerText = '-';
-  } else {
-    trans.innerText = p.transaction_id >> 1;
-    trans.style.color = (p.transaction_id & 1) ? "#090" : "#900";
-  }
+
+  var desc_str = p.f !== 0 ? "\u2691" : '';
 
   var pp = p.plen === 0 ? null : decoder.decode_packet(g_rawdata, p.p+7, p.plen);
   if (pp !== null)
-    desc.innerText = decode_packet_to_display_string(pp, g_rawdata, p.p+7, p.plen);
+    desc_str += decode_packet_to_display_string(pp, g_rawdata, p.p+7, p.plen);
 
-  line.appendChild(n); line.appendChild(ts);
-  line.appendChild(f); line.appendChild(trans);
-  line.appendChild(desc);
-  return line;
+  desc.innerText = desc_str;
+
+  row.appendChild(n);
+  row.appendChild(ts);
+  row.appendChild(desc);
+  return row;
 }
 
-function build_transaction_line(tr, num, height) {
-  var line = document.createElement('div');
-  line.style.height = height;
+function build_transaction_row(tr, height) {
+  var row = document.createElement('div');
+  row.className = 'usbbare-row';
+  row.style.height = height;
   var n = document.createElement('span');
   var ts = document.createElement('span');
-  var trans = document.createElement('span');
   var desc = document.createElement('span');
-  n.style.color = (tr.success === true) ? "#090" : "#900";
-  n.innerText = num; ts.innerText = tr.t;
-  //f.innerText = '';
+  n.style.color = (tr.id & 1) ? "#090" : "#900";
+  n.innerText = tr.id >> 1; ts.innerText = tr.t;
   desc.innerText = tr.typename;
-  line.appendChild(n); line.appendChild(ts);
-  line.appendChild(trans);
-  line.appendChild(desc);
-  return line;
+  row.appendChild(n); row.appendChild(ts);
+  row.appendChild(desc);
+  return row;
 }
 
-function build_transfer_line(tr, num, height) {
-  var line = document.createElement('div');
-  line.style.height = height;
+function build_transfer_row(tr, height) {
+  var row = document.createElement('div');
+  row.className = 'usbbare-row';
+  row.style.height = height;
   var n = document.createElement('span');
   var ts = document.createElement('span');
-  var trans = document.createElement('span');
   var desc = document.createElement('span');
-  n.style.color = (tr.success === true) ? "#090" : "#900";
-  n.innerText = num; ts.innerText = tr.t;
-  //f.innerText = '';
+  n.style.color = (tr.id & 1) ? "#090" : "#900";
+  n.innerText = tr.id >> 1; ts.innerText = tr.t;
 
   var desc_str = tr.typename;
   // "ControlTransfer (SET_ADDRESS)", etc.
@@ -464,10 +460,9 @@ function build_transfer_line(tr, num, height) {
   }
 
   desc.innerText = desc_str;
-  line.appendChild(n); line.appendChild(ts);
-  line.appendChild(trans);
-  line.appendChild(desc);
-  return line;
+  row.appendChild(n); row.appendChild(ts);
+  row.appendChild(desc);
+  return row;
 }
 
 function LazyTable(cell_height, num_cells) {
@@ -705,10 +700,10 @@ function build_ui(
 
   function packet_table(pkts) {
     var view = new LazyTable(kCellHeight, pkts.length);
-    view.div.className = "usbbare-p-list";
+    view.div.className = "usbbare-list";
 
     view.build_cell = function(pos) {
-      var cell = build_packet_line(pkts[pos], kCellHeight + 'px');
+      var cell = build_packet_row(pkts[pos], kCellHeight + 'px');
       return cell;
     };
 
@@ -723,10 +718,10 @@ function build_ui(
 
   function trans_table(trans) {
     var view = new LazyTable(kCellHeight, trans.length);
-    view.div.className = "usbbare-tr-list";
+    view.div.className = "usbbare-list";
     view.build_cell = function(pos) {
       var tr = trans[pos];
-      var cell = build_transaction_line(tr, tr.id, kCellHeight + 'px');
+      var cell = build_transaction_row(tr, kCellHeight + 'px');
       return cell;
     };
 
@@ -741,10 +736,10 @@ function build_ui(
 
   function tfer_table(tfer) {
     var view = new LazyTable(kCellHeight, tfer.length);
-    view.div.className = "usbbare-tr-list";
+    view.div.className = "usbbare-list";
     view.build_cell = function(pos) {
       var tr = tfer[pos];
-      var cell = build_transfer_line(tr, tr.id, kCellHeight + 'px');
+      var cell = build_transfer_row(tr, kCellHeight + 'px');
       return cell;
     };
 
