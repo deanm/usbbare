@@ -78,14 +78,12 @@ var packets = [ ];
 
 for (var i = 0, p = 0, l = rawpcapdata.length; p < l; ++i) {
   var plen = rawpcapdata[p + 5] | rawpcapdata[p + 6] << 8;
-  var pp = null;
-  if (plen !== 0) {
-    pp = decoder.decode_packet(rawpcapdata, p+7, plen);
-    transaction_machine.process_packet(pp, i);
-  }
+  var pp = plen === 0 ? null : decoder.decode_packet(rawpcapdata, p+7, plen);
   packets.push({
     f: rawpcapdata[p] | rawpcapdata[p+1] << 8,
     t: rawpcapdata[p+2] | rawpcapdata[p+3] << 8 | rawpcapdata[p+4] << 8,
     plen: plen, pp: pp});
+  if (pp !== null)
+    transaction_machine.process_packet(pp, i);
   p += 7 + plen;
 }

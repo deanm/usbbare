@@ -26,8 +26,6 @@ function forAsyncEachLine(stream, line_callback, eof_callback) {
   });
 }
 
-var out = [ ];
-
 var stdout = process.stdout;
 
 function process_file(filename, done) {
@@ -44,8 +42,7 @@ function process_file(filename, done) {
     var data = [
       f & 0xff, (f >> 8) & 0xff,
       t & 0xff, (t >> 8) & 0xff, (t >> 16) & 0xff,
-      0, 0
-      ];
+      0, 0];
     for (i = ind + 5, il = line.length; i < il; i += 3) {
       data.push(parseInt(line.substr(i, 3), 16));
     }

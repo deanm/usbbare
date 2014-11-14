@@ -1,6 +1,7 @@
 var decoder = require('./packet_decoder.js');
 var usb_machines = require('./usb_machines.js');
 var structs = require('./structs.js');
+var crclib  = require('./crc.js');
 
 function ce(name, styles) {
   var e = document.createElement(name);
@@ -289,7 +290,12 @@ function build_transfer_display(n, tr) {
 function build_packet_display(n, p) {
   while (n.firstChild) n.removeChild(n.firstChild);
 
-  var d = decoder.decode_packet(p.d);
+  var d = p.pp;
+  if (d === null) {
+    n.innerText = 'ERROR: Packet undecoded.';
+    return;
+  }
+
   if (d.error !== null) {
     n.innerText = 'ERROR: ' + d.error;
     return;
@@ -339,7 +345,7 @@ function build_packet_line(p, num, height) {
     trans.innerText = p.transaction_id >> 1;
     trans.style.color = (p.transaction_id & 1) ? "#090" : "#900";
   }
-  desc.innerText = decoder.decode_packet_to_display_string(p.d);
+  desc.innerText = p.disp;
   line.appendChild(n); line.appendChild(ts);
   line.appendChild(f); line.appendChild(trans);
   line.appendChild(desc);
@@ -383,7 +389,6 @@ function build_transfer_line(tr, num, height) {
     var requesttype_and_request =
       setup.get_value_at(0) << 8 | setup.get_value_at(1) << 13 | setup.get_value_at(2) << 15 |
       setup.get_value_at(3);
-    console.log(requesttype_and_request);
     var display = structs.eStandardDeviceRequests[requesttype_and_request];
     if (display !== undefined)
       desc_str += " (" + display + ")";
@@ -727,9 +732,60 @@ function build_ui(
   document.body.appendChild(cur_view_node.container);
 }
 
+function decode_packet_to_display_string(dp, buf, p, plen) {
+  if (dp.error !== null) return dp.error;
+
+  var pid_type = dp.pid_type, pid_name = dp.pid_name;
+
+  var text = null;
+  switch (pid_type) {
+    case 0:
+      text = "special " + ["RESERVED", "PING", "SPLIT", "PRE/ERR"][pid_name];
+      if (pid_name === 1) {  // PING
+        text += " ADDR: " + dp.ADDR + " EndPoint: " + dp.EndPoint;
+        var crc = crclib.crc5_16bit(buf[p+1], buf[p+2]);
+        if (crc !== 6) text += " ERROR: bad crc5: 0x" + crc.toString(16);
+      }
+      break;
+
+    // Token packets:
+    //   Sync PID ADDR ENDP CRC5 EOP
+    // Start of Frame Packets:
+    //   Sync PID Frame Number CRC5 EOP
+    case 1:
+      if (plen != 3) return "ERROR: token packet length != 3";
+      text = "token " + ["OUT", "SOF", "IN", "SETUP"][pid_name] + ((pid_name === 1) ?
+                " FrameNumber: " + dp.FrameNumber :
+                " ADDR: " + dp.ADDR + " EndPoint: " + dp.EndPoint);
+      var crc = crclib.crc5_16bit(buf[p+1], buf[p+2]);
+      if (crc !== 6) text += " ERROR: bad crc5: 0x" + crc.toString(16);
+      break;
+
+    // Handshake packets:
+    //   Sync PID EOP
+    case 2:
+      if (plen != 1) return "ERROR: handshake packet length != 1";
+      text = "handshake " + ["ACK", "NYET", "NAK", "STALL"][pid_name];
+      break;
+
+    // Data packets:
+    //   Sync PID Data CRC16 EOP
+    case 3:
+      if (plen < 3) return "ERROR: data packet length < 3";
+      text = "data " + ["DATA0", "DATA2", "DATA1", "MDATA"][pid_name] + " len " + (plen-3);
+      var crc = crclib.crc16(buf, p+1, p+plen);
+      if (crc !== 0xb001) text += " ERROR: bad crc16: 0x" + crc.toString(16);
+      break;
+  }
+
+  return text;
+}
+
 window.onload = function() {
   var transaction_machine = new usb_machines.TransactionMachine();
   var transfer_machine = new usb_machines.TransferMachine();
+
+  var packets = [ ];
 
   var transactions = [ ];
   var transactions_succ = [ ];
@@ -789,12 +845,18 @@ window.onload = function() {
   };
 
 
-  console.log('Running transaction state machine...');
-  for (var i = 0, il = packets.length; i < il; ++i) {
-    var p = packets[i];
-    var rp = p.d;
-    var res = null;
-    if (rp.length !== 0) res = transaction_machine.process_packet(rp, i);
+  console.log('Decoding packets and running state machines...');
+  for (var i = 0, p = 0, l = rawpcapdata.length; p < l; ++i) {
+    var plen = rawpcapdata[p + 5] | rawpcapdata[p + 6] << 8;
+    var pp = plen === 0 ? null : decoder.decode_packet(rawpcapdata, p+7, plen);
+    var disp = pp === null ? null : decode_packet_to_display_string(pp, rawpcapdata, p+7, plen);
+    packets.push({
+      f: rawpcapdata[p] | rawpcapdata[p+1] << 8,
+      t: rawpcapdata[p+2] | rawpcapdata[p+3] << 8 | rawpcapdata[p+4] << 8,
+      plen: plen, pp: pp, disp: disp});
+    if (pp !== null)
+      transaction_machine.process_packet(pp, i);
+    p += 7 + plen;
   }
   console.log('...done');
 

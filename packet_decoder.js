@@ -1,5 +1,3 @@
-var crclib  = require('./crc.js');
-
 function decode_packet(buf, p, plen) {
   if (plen < 1) return {error: 'empty packet'};
 
@@ -62,57 +60,6 @@ function decode_packet(buf, p, plen) {
   return res;
 }
 
-function decode_packet_to_display_string(data, p, plen) {
-  var dp = decode_packet(data, p, plen);
-  if (dp.error !== null) return dp.error;
-
-  var pid_type = dp.pid_type, pid_name = dp.pid_name;
-
-  var text = null;
-  switch (pid_type) {
-    case 0:
-      text = "special " + ["RESERVED", "PING", "SPLIT", "PRE/ERR"][pid_name];
-      if (pid_name === 1) {  // PING
-        text += " ADDR: " + dp.ADDR + " EndPoint: " + dp.EndPoint;
-        var crc = crclib.crc5_16bit(buf[p+1], buf[p+2]);
-        if (crc !== 6) text += " ERROR: bad crc5: 0x" + crc.toString(16);
-      }
-      break;
-
-    // Token packets:
-    //   Sync PID ADDR ENDP CRC5 EOP
-    // Start of Frame Packets:
-    //   Sync PID Frame Number CRC5 EOP
-    case 1:
-      if (plen != 3) return "ERROR: token packet length != 3";
-      text = "token " + ["OUT", "SOF", "IN", "SETUP"][pid_name] + ((pid_name === 1) ?
-                " FrameNumber: " + dp.FrameNumber :
-                " ADDR: " + dp.ADDR + " EndPoint: " + dp.EndPoint);
-      var crc = crclib.crc5_16bit(buf[p+1], buf[p+2]);
-      if (crc !== 6) text += " ERROR: bad crc5: 0x" + crc.toString(16);
-      break;
-
-    // Handshake packets:
-    //   Sync PID EOP
-    case 2:
-      if (plen != 1) return "ERROR: handshake packet length != 1";
-      text = "handshake " + ["ACK", "NYET", "NAK", "STALL"][pid_name];
-      break;
-
-    // Data packets:
-    //   Sync PID Data CRC16 EOP
-    case 3:
-      if (plen < 3) return "ERROR: data packet length < 3";
-      text = "data " + ["DATA0", "DATA2", "DATA1", "MDATA"][pid_name] + " len " + (packet.length-3);
-      var crc = crclib.crc16(buf, p, p+plen);
-      if (crc !== 0xb001) res.error = "ERROR: bad crc16: 0x" + crc.toString(16);
-      break;
-  }
-
-  return text;
-}
-
 try {
   exports.decode_packet = decode_packet;
-  exports.decode_packet_to_display_string = decode_packet_to_display_string;
 } catch(e) { }
