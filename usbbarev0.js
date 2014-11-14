@@ -791,6 +791,12 @@ function process_and_init(rawdata) {
   var transaction_machine = new usb_machines.TransactionMachine();
   var transfer_machine = new usb_machines.TransferMachine();
 
+  var loading = ce('div',
+    {height: '100%', width: '100%',
+     backgroundColor: 'purple', color: 'white', fontSize: '8em'});
+  loading.innerText = 'loading...'
+  document.body.appendChild(loading);
+
   var packets = [ ];
 
   var transactions = [ ];
@@ -820,8 +826,8 @@ function process_and_init(rawdata) {
               t: packets[ids[0]].t /* TODO handle overflow */};
     transactions.push(tr);
     (success === true ? transactions_succ : transactions_fail).push(tr);
-    if (success === true)
-      transfer_machine.process_transaction(tr, transaction_id);
+
+    if (success === true) transfer_machine.process_transaction(tr, transaction_id);
   };
 
   var transfers = [ ];
@@ -829,6 +835,8 @@ function process_and_init(rawdata) {
   var transfers_fail = [ ];
 
   transfer_machine.OnEmit = function(transtype, typename, success, out, state) {
+    return;
+
     var transfer_id = transfers.length;
     var ids = state.ids;
     var succ_bit = success === true ? 1 : 0;
@@ -851,23 +859,42 @@ function process_and_init(rawdata) {
   };
 
 
-  console.log('Decoding packets and running state machines...');
-  for (var i = 0, p = 0, l = rawdata.length; p < l; ++i) {
-    var plen = rawdata[p + 5] | rawdata[p + 6] << 8;
-    var pp = plen === 0 ? null : decoder.decode_packet(rawdata, p+7, plen);
-    var disp = pp === null ? null : decode_packet_to_display_string(pp, rawdata, p+7, plen);
-    packets.push({
-      f: rawdata[p] | rawdata[p+1] << 8,
-      t: rawdata[p+2] | rawdata[p+3] << 8 | rawdata[p+4] << 8,
-      plen: plen, pp: pp, disp: disp});
-    if (pp !== null && pp.error === null) transaction_machine.process_packet(pp, i);
-    p += 7 + plen;
-  }
-  console.log('...done');
+  // Keep the browser happy by processing in chunks and keep the UI loop alive.
 
-  build_ui(packets,
-           transactions, transactions_succ, transactions_fail,
-           transfers, transfers_succ, transfers_fail);
+  console.log('Decoding packets and running state machines...');
+  var i = 0, p = 0, l = rawdata.length;
+  function process_block() {
+    loading.innerText = 'loading... ' + ((p / l * 100) | 0) + '%';
+    while (true) {
+      if (p >= l) {
+        console.log('...done');
+        document.body.removeChild(loading);
+
+        build_ui(packets,
+                 transactions, transactions_succ, transactions_fail,
+                 transfers, transfers_succ, transfers_fail);
+        return;
+      }
+
+      var plen = rawdata[p + 5] | rawdata[p + 6] << 8;
+      var pp = plen === 0 ? null : decoder.decode_packet(rawdata, p+7, plen);
+      var disp = pp === null ? null : decode_packet_to_display_string(pp, rawdata, p+7, plen);
+      packets.push({
+        f: rawdata[p] | rawdata[p+1] << 8,
+        t: rawdata[p+2] | rawdata[p+3] << 8 | rawdata[p+4] << 8,
+        plen: plen, pp: pp, disp: disp});
+      if (pp !== null && pp.error === null) transaction_machine.process_packet(pp, i);
+      p += 7 + plen;
+      ++i;
+
+      if ((i & 0x3fff) === 0) {
+        setTimeout(process_block, 0);
+        return;
+      }
+    }
+  }
+
+  process_block();
 }
 
 function build_file_drop_area() {
