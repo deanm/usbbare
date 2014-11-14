@@ -50,16 +50,12 @@ function process_file(filename, done) {
     var plen = data.length - 7;
     data[5] = plen & 0xff;
     data[6] = (plen >> 8) & 0xff;
-    data.push('');  // to get the ending comma
-    stdout.write(data.join(','), 'utf8');
+    stdout.write(new Buffer(data));
   }, done);
 }
 
 if (process.argv.length > 2) {
-  stdout.write("rawpcapdata = new Uint8Array([", "utf8");
-  process_file(process.argv[2], function() {
-    stdout.write("]);");
-  });
+  process_file(process.argv[2], function() { });
 } else {
   console.log("usage: <filename>");
 }
