@@ -199,12 +199,20 @@ function disect_config_desc(n, flat_data) {
   pos += descriptor.get_value("bLength");
 
   for (var i = 0; i < num_interfaces; ++i) {
+    if (flat_data[pos+1] !== 4) {  // INTERFACE
+      n.appendChild(text_div("Skipped unknown descriptor: " + flat_data[pos+1], 6, 15));
+      --i;
+      pos += flat_data[pos];
+      continue;
+    }
+
     var iface = new structs.Fields();
     if (structs.parse_StandardInterfaceDescriptor(
         iface, flat_data, pos, flat_data.length) === false) {
       n.appendChild(text_div("failed to parse interface descriptor", 6, 15));
       return;
     }
+
     n.appendChild(text_div("INTERFACE", 2));
 
     // Gnarly, try to look up subclass and interface names.
@@ -215,6 +223,13 @@ function disect_config_desc(n, flat_data) {
 
     var num_eps = iface.get_value("bNumEndpoints");
     for (var j = 0; j < num_eps; ++j) {
+      if (flat_data[pos+1] !== 5) {  // ENDPOINT
+        n.appendChild(text_div("Skipped unknown descriptor: " + flat_data[pos+1], 6, 15));
+        --j;
+        pos += flat_data[pos];
+        continue;
+      }
+
       var ep = new structs.Fields();
       if (structs.parse_StandardEndpointDescriptor(
           ep, flat_data, pos, flat_data.length) === false) {
@@ -232,7 +247,7 @@ function build_transaction_display(n, tr) {
   while (n.firstChild) n.removeChild(n.firstChild);
 
   n.appendChild(text_div('Type: ' + tr.typename));
-  n.appendChild(text_div('Success: ' + tr.success));
+  n.appendChild(text_div('Success: ' + (tr.id >> 1 ? 'true' : 'false')));
   n.appendChild(text_div('Packet IDs: ' + tr.packets.map(function(x) { return x.id >> 1; })));
   var out = tr.out;
   for (key in out) {
@@ -241,8 +256,8 @@ function build_transaction_display(n, tr) {
       n.appendChild(build_table_from_fields(out.setup));
       continue;
     }
-    if (key === "data" && Array.isArray(out[key])) {
-      n.appendChild(text_div(hex_dump_chunked(out[key], 16)));
+    if (key === "data" && out[key] !== undefined) {
+      n.appendChild(text_div(hex_dump(out[key], 16)));
       continue
     }
     n.appendChild(text_div(key + ': ' + out[key]));
@@ -264,12 +279,28 @@ function build_control_transfer_display(n, tr) {
       var wvalue = setup.get_value("wValue");
       var desctype = wvalue >> 8, descidx = wvalue & 0xff;
 
+      n.appendChild(text_div("Descriptor Type: " + structs.eDescriptorTypes[desctype]), 5);
+      n.appendChild(text_div("Descriptor Index: " + descidx),  5);
+
       switch (desctype) {
         case 1:  // DEVICE
           disect_device_desc(n, flat_data);
           break;
         case 2:  // CONFIGURATION
           disect_config_desc(n, flat_data);
+          break;
+        case 3:  // STRING
+          if (flat_data[1] !== 3) {
+            console.log("Unknown string descriptor constant");
+            return;
+          }
+          var ustr_len = flat_data[0] - 2;
+          var ustr = '';
+          for (var i = 0; i*2+3 < flat_data.length && i < ustr_len; ++i) {
+            ustr += String.fromCharCode(flat_data[i*2+2] | flat_data[i*2+3] << 8);
+          }
+          n.appendChild(text_div("Descriptor String:"));
+          n.appendChild(text_div(ustr, 5, 15));
           break;
         default:
           n.appendChild(text_div(structs.eDescriptorTypes[desctype], 2));
