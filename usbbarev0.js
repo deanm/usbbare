@@ -253,7 +253,7 @@ function build_transaction_display(n, tr) {
 
 function build_control_transfer_display(n, tr) {
   var data = tr.out.data;
-  if (data === null || data.length === 0) return;
+  if (data === undefined || data.length === 0) return;
   var flat_data = flatten_chunked(data);
 
   var setup = tr.out.setup;
