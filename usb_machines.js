@@ -19,7 +19,7 @@ function TransactionMachine() {
       states.push({
         out: new usb_states[typename],
         s: usb_states[name](),
-        ids: [ ],
+        packets: [ ],
         transtype: transtype,
         typename: typename});
     },
@@ -29,9 +29,7 @@ function TransactionMachine() {
   cb.spawn("bulkin_run", "transaction", "BulkTransactionIn", null);
   cb.spawn("bulkout_run", "transaction", "BulkTransactionOut", null);
 
-  this.process_packet = function(pp, id) {
-    if (pp.error !== null) throw pp.error;
-
+  this.process_packet = function(pp, packet) {
     if (pp.pid_type === 1 && pp.pid_name === 1) return null;  // Ignore SOF
 
     // cache states length because we don't want to process newly spawned
@@ -39,13 +37,13 @@ function TransactionMachine() {
     if (states.length > 100) console.log("Warning: num states: " + states.length);
     for (var i = 0, il = states.length; i < il; ++i) {
       var state = states[i];
-      state.ids.push(id);
-      var meta = {id: id};
+      state.packets.push(packet);
+      var meta = {packet: packet};
       var res = state.s(pp, state.out, meta, state, cb);
       //console.log(res);
 
       if (res.next === usb_states.kPass) {
-        state.ids.pop();  // hack...
+        state.packets.pop();  // hack...
         continue;
       }
 
@@ -77,7 +75,7 @@ function TransferMachine() {
       states.push({
         out: new usb_states[typename],
         s: usb_states[name](),
-        ids: [ ],
+        transactions: [ ],
         transtype: transtype,
         typename: typename});
     },
@@ -85,7 +83,7 @@ function TransferMachine() {
 
   cb.spawn("ct_run", "transfer", "ControlTransfer", null);
 
-  this.process_transaction = function(tr, id) {
+  this.process_transaction = function(tr, transaction) {
     if (tr.success !== true) throw "Shouldn't process failed transactions.";
 
     // cache states length because we don't want to process newly spawned
@@ -93,12 +91,12 @@ function TransferMachine() {
     if (states.length > 100) console.log("Warning: num states: " + states.length);
     for (var i = 0, il = states.length; i < il; ++i) {
       var state = states[i];
-      state.ids.push(id);
-      var meta = {id: id};
+      state.transactions.push(transaction);
+      var meta = {transaction: transaction};
       var res = state.s(tr, state.out, meta, state, cb);
 
       if (res.next === usb_states.kPass) {
-        state.ids.pop();  // hack...
+        state.transactions.pop();  // hack...
         continue;
       }
 

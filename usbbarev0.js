@@ -233,7 +233,7 @@ function build_transaction_display(n, tr) {
 
   n.appendChild(text_div('Type: ' + tr.typename));
   n.appendChild(text_div('Success: ' + tr.success));
-  n.appendChild(text_div('Packet IDs: ' + tr.ids));
+  n.appendChild(text_div('Packet IDs: ' + tr.packets.map(function(x) { return x.id >> 1; })));
   var out = tr.out;
   for (key in out) {
     if (key.substr(key.length - 2) === "_m") continue;
@@ -288,7 +288,7 @@ function build_transfer_display(n, tr) {
 
   n.appendChild(text_div('Type: ' + tr.typename));
   n.appendChild(text_div('Success: ' + tr.success));
-  n.appendChild(text_div('Transaction IDs: ' + tr.ids));
+  n.appendChild(text_div('Transaction IDs: ' + tr.transactions.map(function(x) { return x.id >> 1; })));
   var out = tr.out;
   for (key in out) {
     if (key.substr(key.length - 2) === "_m") continue;
@@ -326,11 +326,6 @@ function build_packet_display(n, p) {
     return;
   }
 
-  if (d.error !== null) {
-    n.innerText = 'ERROR: ' + d.error;
-    return;
-  }
-
   //n.appendChild(text_div(JSON.stringify(d)));
   var pid_type_str = ["special", "token", "handshake", "data"][d.pid_type];
   var pid_name_str = kPidNameTable[d.pid_type << 2 | d.pid_name];
@@ -349,17 +344,19 @@ function build_packet_display(n, p) {
       n.appendChild(make_field("EndPoint", 5,
         [make_bit_field_node("EndPoint", d.EndPoint, to_bin_str(4, d.EndPoint))]));
     }
+    var crc = crclib.crc5_16bit(g_rawdata[p.p+8], g_rawdata[p.p+9]);
     n.appendChild(make_field("CRC5", 5,
       [make_bit_field_node("CRC5", d.CRC5, to_bin_str(5, d.CRC5))]));
   } else if (d.pid_type === 3) {  // Data
     n.appendChild(make_field("DATA", 4,
       [make_bit_field_node("data length", d.data.length, "...")]));
+    var crc = crclib.crc16(g_rawdata, p.p+8, p.p+7+p.plen);
     n.appendChild(make_field("CRC16", 11,
       [make_bit_field_node("CRC16", d.CRC16, to_bin_str(16, d.CRC16))]));
   }
 }
 
-function build_packet_line(p, num, height) {
+function build_packet_line(p, height) {
   var line = document.createElement('div');
   line.style.height = height;
   var n = document.createElement('span');
@@ -367,7 +364,9 @@ function build_packet_line(p, num, height) {
   var f = document.createElement('span');
   var trans = document.createElement('span');
   var desc = document.createElement('span');
-  n.innerText = num; ts.innerText = p.t;
+  n.innerText = p.id >> 1;
+  n.style.color = (p.id & 1) ? "#090" : "#900";
+  ts.innerText = p.t;
   f.innerText = p.f;
   if (p.transaction_id === undefined) {
     trans.innerText = '-';
@@ -426,6 +425,9 @@ function build_transfer_line(tr, num, height) {
     var display = structs.eStandardDeviceRequests[requesttype_and_request];
     if (display !== undefined)
       desc_str += " (" + display + ")";
+    display = structs.eClassSpecificHIDRequests[requesttype_and_request];
+    if (display !== undefined)
+      desc_str += " (" + display + ")";
   }
 
   desc.innerText = desc_str;
@@ -435,10 +437,8 @@ function build_transfer_line(tr, num, height) {
   return line;
 }
 
-function LazyTable(cell_height, cells) {
+function LazyTable(cell_height, num_cells) {
   var this_ = this;
-
-  var num_cells = cells.length;
 
   var total_height = num_cells * cell_height;
 
@@ -558,9 +558,6 @@ function LazyTable(cell_height, cells) {
     hole1.style.height = hole1_height + 'px';
   }
 
-  document.addEventListener("scroll", function(x) { layout(); });
-  window.addEventListener("resize", function(x) { layout(); });
-
   div.setAttribute("tabindex", 0);
 
   div.addEventListener("keydown", function(e) {
@@ -606,27 +603,32 @@ function LazyTable(cell_height, cells) {
 function build_nav_bar(cb) {
   var div = ce('div');
   div.className = "usbbare-nav";
-  var packets = text_span('packets', {marginRight: '2em', borderBottom: '1px solid black', cursor: 'default'});
+
+  var packets = ce('span', {marginRight: '2em', cursor: 'default'});
+  var packets_orb = text_span('\u25CF', {position: 'relative', left: '-0.15em', top: '0.033em'});
+  packets.appendChild(packets_orb);
+  packets.appendChild(text_span('packets', {marginRight: 0}));
+
   var transactions = ce('span', {marginRight: '2em', cursor: 'default'});
+  var transactions_orb = text_span('\u25CF', {position: 'relative', left: '-0.15em', top: '0.033em'});
+  transactions.appendChild(transactions_orb);
   transactions.appendChild(text_span('transactions', {marginRight: 0}));
-  var transaction_orb = text_span('\u25CF', {position: 'relative', left: '0.15em', top: '0.033em'});
-  transactions.appendChild(transaction_orb);
 
   var transfers = ce('span', {marginRight: '2em', cursor: 'default'});
+  var transfers_orb = text_span('\u25CF', {position: 'relative', left: '-0.15em', top: '0.033em'});
+  transfers.appendChild(transfers_orb);
   transfers.appendChild(text_span('transfers', {marginRight: 0, cursor: 'default'}));
-  var transfer_orb = text_span('\u25CF', {position: 'relative', left: '0.15em', top: '0.033em'});
-  transfers.appendChild(transfer_orb);
 
   var cur_view = 0;
 
-  var link_nodes = [packets, transactions.firstChild, transfers.firstChild];
+  var link_nodes = [packets.lastChild, transactions.lastChild, transfers.lastChild];
 
-  var orbs = [null, transaction_orb, transfer_orb];
+  var orbs = [packets_orb, transactions_orb, transfers_orb];
   var orb_states = [0, 0, 0];
 
   function handle_click(view_id) {
     return function(e) {
-      if (cur_view === view_id && (view_id === 1 || view_id === 2)) {
+      if (cur_view === view_id) {
         orb_states[view_id] = (orb_states[view_id] + 1) % 3;
         orbs[view_id].style.color = ["#000", "#090", "#900"][orb_states[view_id]];
         //orb.textContent = ['\u25CF', '\u25D0', '\u25D1'][orb_state];
@@ -654,11 +656,12 @@ function build_nav_bar(cb) {
 }
 
 function build_ui(
-    packets,
+    packets, packets_succ, packets_fail,
     transactions, transactions_succ, transactions_fail,
     transfers, transfers_succ, transfers_fail) {
 
   var panel = document.createElement('div');
+  panel.style.zIndex = 2;
   panel.className = "usbbare-panel";
   panel.style.display = "none";
 
@@ -666,37 +669,27 @@ function build_ui(
   packet_display_node.className = "usbbare-p";
 
   var kCellHeight = 18;
-  var packet_view = new LazyTable(kCellHeight, packets);
-  packet_view.div.className = "usbbare-p-list";
 
-  packet_view.build_cell = function(id) {
-    var cell = build_packet_line(packets[id], id, kCellHeight + 'px');
-    return cell;
-  };
+  function packet_table(pkts) {
+    var view = new LazyTable(kCellHeight, pkts.length);
+    view.div.className = "usbbare-p-list";
 
-  packet_view.build_expanded = function(id) {
-    build_packet_display(panel, packets[id]);
-    panel.style.display = "block";
-    packet_view.select(id);
-    return null;  // Not inline in the list view.
-  };
+    view.build_cell = function(pos) {
+      var cell = build_packet_line(pkts[pos], kCellHeight + 'px');
+      return cell;
+    };
 
-/*
-        selected = target.packet_num;
-        var tid = packets[selected].transaction_id;
-        if (tid !== cur_transaction_id) {
-          if (tid !== null) {
-            build_transaction_display(transaction_panel, transactions[tid], tid);
-            transaction_panel.style.display = "block";
-          } else {
-            transaction_panel.style.display = "none";
-          }
-          cur_transaction_id = tid;
-        }
-*/
+    view.build_expanded = function(pos) {
+      build_packet_display(panel, pkts[pos]);
+      panel.style.display = "block";
+      view.select(pos);
+      return null;  // Not inline in the list view.
+    };
+    return view;
+  }
 
   function trans_table(trans) {
-    var view = new LazyTable(kCellHeight, trans);
+    var view = new LazyTable(kCellHeight, trans.length);
     view.div.className = "usbbare-tr-list";
     view.build_cell = function(pos) {
       var tr = trans[pos];
@@ -714,7 +707,7 @@ function build_ui(
   }
 
   function tfer_table(tfer) {
-    var view = new LazyTable(kCellHeight, tfer);
+    var view = new LazyTable(kCellHeight, tfer.length);
     view.div.className = "usbbare-tr-list";
     view.build_cell = function(pos) {
       var tr = tfer[pos];
@@ -731,6 +724,10 @@ function build_ui(
     return view;
   }
 
+  var packet_view = packet_table(packets);
+  var packet_succ_view = packet_table(packets_succ);
+  var packet_fail_view = packet_table(packets_fail);
+
   var transaction_view = trans_table(transactions);
   var transaction_succ_view = trans_table(transactions_succ);
   var transaction_fail_view = trans_table(transactions_fail);
@@ -740,16 +737,15 @@ function build_ui(
   var transfer_fail_view = tfer_table(transfers_fail);
 
   var view_nodes = [
-    packet_view,
+    [packet_view, packet_succ_view, packet_fail_view],
     [transaction_view, transaction_succ_view, transaction_fail_view],
     [transfer_view, transfer_succ_view, transfer_fail_view],
   ];
-  var cur_view_node = view_nodes[0];
+  var cur_view_node = view_nodes[0][0];
 
   var nav_bar = build_nav_bar(function(old_id, new_id, orb_id) {
     document.body.removeChild(cur_view_node.container);
-    var new_node = view_nodes[new_id];
-    if (Array.isArray(new_node)) new_node = new_node[orb_id];
+    var new_node = view_nodes[new_id][orb_id];
     document.body.appendChild(new_node.container);
     new_node.clear_selection();
     new_node.layout();
@@ -758,14 +754,16 @@ function build_ui(
 
   cur_view_node.layout();
 
+  document.addEventListener("scroll", function(x) { cur_view_node.layout(); });
+  window.addEventListener("resize", function(x) { cur_view_node.layout(); });
+
+
   document.body.appendChild(nav_bar);
   document.body.appendChild(panel);
   document.body.appendChild(cur_view_node.container);
 }
 
 function decode_packet_to_display_string(dp, buf, p, plen) {
-  if (dp.error !== null) return dp.error;
-
   var pid_type = dp.pid_type, pid_name = dp.pid_name;
 
   var text = null;
@@ -774,8 +772,6 @@ function decode_packet_to_display_string(dp, buf, p, plen) {
       text = "special " + ["RESERVED", "PING", "SPLIT", "PRE/ERR"][pid_name];
       if (pid_name === 1) {  // PING
         text += " ADDR: " + dp.ADDR + " EndPoint: " + dp.EndPoint;
-        var crc = crclib.crc5_16bit(buf[p+1], buf[p+2]);
-        if (crc !== 6) text += " ERROR: bad crc5: 0x" + crc.toString(16);
       }
       break;
 
@@ -788,8 +784,6 @@ function decode_packet_to_display_string(dp, buf, p, plen) {
       text = "token " + ["OUT", "SOF", "IN", "SETUP"][pid_name] + ((pid_name === 1) ?
                 " FrameNumber: " + dp.FrameNumber :
                 " ADDR: " + dp.ADDR + " EndPoint: " + dp.EndPoint);
-      var crc = crclib.crc5_16bit(buf[p+1], buf[p+2]);
-      if (crc !== 6) text += " ERROR: bad crc5: 0x" + crc.toString(16);
       break;
 
     // Handshake packets:
@@ -804,8 +798,6 @@ function decode_packet_to_display_string(dp, buf, p, plen) {
     case 3:
       if (plen < 3) return "ERROR: data packet length < 3";
       text = "data " + ["DATA0", "DATA2", "DATA1", "MDATA"][pid_name] + " len " + (plen-3);
-      var crc = crclib.crc16(buf, p+1, p+plen);
-      if (crc !== 0xb001) text += " ERROR: bad crc16: 0x" + crc.toString(16);
       break;
   }
 
@@ -827,36 +819,37 @@ function process_and_init(rawdata) {
   document.body.appendChild(loading);
 
   var packets = [ ];
+  var packets_succ = [ ];
+  var packets_fail = [ ];
 
   var transactions = [ ];
   var transactions_succ = [ ];
   var transactions_fail = [ ];
 
   transaction_machine.OnEmit = function(transtype, typename, success, out, state) {
-    var transaction_id = transactions.length;
-    var ids = state.ids;
+    var pkts = state.packets;
     var succ_bit = success === true ? 1 : 0;
+    var transaction_id = transactions.length << 1 | succ_bit;
 
-    if (success === true && ids.length !== 3)
+    if (success === true && pkts.length !== 3)
       console.log("Warning: Successful transaction doesn't have 3 packets: " + transaction_id);
 
-    for (var i = 0, il = ids.length; i < il; ++i) {
-      var packet_id = ids[i];
-      if (packet_id > packets.length || packet_id < 0) throw packet_id;
-      if (packets[packet_id] === undefined) throw packet_id;
-      packets[packet_id].transaction_id = transaction_id << 1 | succ_bit;
+    /*
+    for (var i = 0, il = pkts.length; i < il; ++i) {
+      pkts[i].transaction_id = transaction_id;
     }
+    */
 
     var tr = {id: transaction_id,
               typename: typename,
               success: success,
               out: out,
-              ids: ids,
-              t: packets[ids[0]].t /* TODO handle overflow */};
+              packets: pkts,
+              t: pkts[0].t /* TODO handle overflow */};
     transactions.push(tr);
     (success === true ? transactions_succ : transactions_fail).push(tr);
 
-    if (success === true) transfer_machine.process_transaction(tr, transaction_id);
+    if (success === true) transfer_machine.process_transaction(tr, tr);
   };
 
   var transfers = [ ];
@@ -864,27 +857,25 @@ function process_and_init(rawdata) {
   var transfers_fail = [ ];
 
   transfer_machine.OnEmit = function(transtype, typename, success, out, state) {
-    var transfer_id = transfers.length;
-    var ids = state.ids;
+    var transactions = state.transactions;
     var succ_bit = success === true ? 1 : 0;
+    var transfer_id = transfers.length << 1 | succ_bit;
 
-    for (var i = 0, il = ids.length; i < il; ++i) {
-      var transaction_id = ids[i];
-      if (transaction_id > transactions.length || transaction_id < 0) throw transaction_id;
-      if (transactions[transaction_id] === undefined) throw transaction_id;
-      transactions[transaction_id].transfer_id = transfer_id << 1 | succ_bit;
+    /*
+    for (var i = 0, il = transactions.length; i < il; ++i) {
+      transactions[i].transfer_id = transfer_id;
     }
+    */
 
     var tr = {id: transfer_id,
               typename: typename,
               success: success,
               out: out,
-              ids: ids,
-              t: transactions[ids[0]].t /* TODO handle overflow */};
+              transactions: transactions,
+              t: transactions[0].t /* TODO handle overflow */};
     transfers.push(tr);
     (success === true ? transfers_succ : transfers_fail).push(tr);
   };
-
 
   // Keep the browser happy by processing in chunks and keep the UI loop alive.
 
@@ -897,7 +888,7 @@ function process_and_init(rawdata) {
         console.log('...done');
         document.body.removeChild(loading);
 
-        build_ui(packets,
+        build_ui(packets, packets_succ, packets_fail,
                  transactions, transactions_succ, transactions_fail,
                  transfers, transfers_succ, transfers_fail);
         return;
@@ -905,11 +896,26 @@ function process_and_init(rawdata) {
 
       var plen = rawdata[p + 5] | rawdata[p + 6] << 8;
       var pp = plen === 0 ? null : decoder.decode_packet(rawdata, p+7, plen);
-      packets.push({
+
+      var success =
+        pp !== null &&  // Check decode
+        (pp.CRC5 === undefined ||  // Check CRC5
+          (plen === 3 && crclib.crc5_16bit(rawdata[p+8], rawdata[p+9]) === 6)) &&
+        (pp.CRC16 === undefined ||  // Check CRC16
+          (plen >= 3 && crclib.crc16(rawdata, p+8, p+7+plen) === 0xb001));
+
+      var packet_id = i << 1 | (success === true ? 1 : 0);
+
+      var packet = {
+        id: packet_id,
         f: rawdata[p] | rawdata[p+1] << 8,
         t: rawdata[p+2] | rawdata[p+3] << 8 | rawdata[p+4] << 8,
-        p: p, plen: plen});
-      if (pp !== null && pp.error === null) transaction_machine.process_packet(pp, i);
+        p: p, plen: plen};
+      packets.push(packet);
+      (success === true ? packets_succ : packets_fail).push(packet);
+
+      if (success) transaction_machine.process_packet(pp, packet);
+
       p += 7 + plen;
       ++i;
 
@@ -927,13 +933,19 @@ function build_file_drop_area() {
   var div = ce('div',
     {height: '100%', width: '100%',
      backgroundColor: 'purple', color: 'white', fontSize: '8em'});
-  div.appendChild(text_div("Drop a packet file"));
+  div.innerText = "Drop a packet file";
 
 
-  div.addEventListener("dragenter", stopprop);
   div.addEventListener("dragover", stopprop);
+  div.addEventListener("dragenter", function(e) {
+    div.innerText = "Ohhhh yeah";
+    return stopprop(e);
+  });
+  div.addEventListener("dragleave", function(e) {
+    div.innerText = "Drop a packet file";
+    return stopprop(e);
+  });
   div.addEventListener("drop", function(e) {
-    console.log('drop');
     var dt = e.dataTransfer;
     if (dt === undefined) alert("no data transfer");
     var files = dt.files;

@@ -90,7 +90,14 @@ for (var i = 0, p = 0, l = rawpcapdata.length; p < l; ++i) {
     f: rawpcapdata[p] | rawpcapdata[p+1] << 8,
     t: rawpcapdata[p+2] | rawpcapdata[p+3] << 8 | rawpcapdata[p+4] << 8,
     plen: plen, pp: pp});
-  if (pp !== null && pp.error === null)
+
+  if (pp === null) {
+    console.log('packet error:');
+    console.log(plen);
+    console.log(rawpcapdata.subarray(p+7, p+7+plen));
+  } else {
     transaction_machine.process_packet(pp, i);
+  }
+
   p += 7 + plen;
 }
