@@ -536,7 +536,6 @@ function LazyTable(cell_height, cells) {
   div.setAttribute("tabindex", 0);
 
   div.addEventListener("keydown", function(e) {
-    console.log(e);
     if (e.which !== 40 && e.which !== 38) return true;
 
     if (selected !== null) {
@@ -545,9 +544,7 @@ function LazyTable(cell_height, cells) {
       new_node = this_.build_expanded(selected);
     }
 
-    e.preventDefault();
-    e.stopPropagation();
-    return false;
+    return stopprop(e);
   });
 
   div.addEventListener('click', (function() { return function(e) {
