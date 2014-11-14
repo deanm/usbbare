@@ -51,11 +51,11 @@ var CRC_TABLE = [
 
 // NOTE(deanm): Not sure if this is the correct variant of crc16, but anyway
 // it will compute a crc16 and 0xb001 will be for a correct checksum.
-function crc16(data, start_pos)
+function crc16(data, start_pos, end_pos)
 {
   var crc = 0xFFFF;
 
-  for (var i = start_pos, l = data.length; i < l; ++i)
+  for (var i = start_pos; i < end_pos; ++i)
   {
     var j = (crc ^ data[i]) & 0xFF;
 

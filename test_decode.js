@@ -1,5 +1,6 @@
 var fs = require('fs');
 var structs = require('./structs.js');
+var decoder = require('./packet_decoder.js');
 var usb_machines = require('./usb_machines.js');
 
 if (process.argv.length > 2) {
@@ -73,10 +74,18 @@ transfer_machine.OnEmit = function(transtype, typename, success, out, state) {
   ++transfer_id;
 };
 
-//var decoder = require('./packet_decoder.js');
-for (var i = 0, il = packets.length; i < il; ++i) {
-  var packet = packets[i];
-  //console.log(decoder.decode_packet_to_display_string(packet.d));
-  if (packet.d.length !== 0)
-    transaction_machine.process_packet(packet.d, i);
+var packets = [ ];
+
+for (var i = 0, p = 0, l = rawpcapdata.length; p < l; ++i) {
+  var plen = rawpcapdata[p + 5] | rawpcapdata[p + 6] << 8;
+  var pp = null;
+  if (plen !== 0) {
+    pp = decoder.decode_packet(rawpcapdata, p+7, plen);
+    transaction_machine.process_packet(pp, i);
+  }
+  packets.push({
+    f: rawpcapdata[p] | rawpcapdata[p+1] << 8,
+    t: rawpcapdata[p+2] | rawpcapdata[p+3] << 8 | rawpcapdata[p+4] << 8,
+    plen: plen, pp: pp});
+  p += 7 + plen;
 }

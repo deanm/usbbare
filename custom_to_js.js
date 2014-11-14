@@ -28,6 +28,8 @@ function forAsyncEachLine(stream, line_callback, eof_callback) {
 
 var out = [ ];
 
+var stdout = process.stdout;
+
 function process_file(filename, done) {
   var fs = require('fs');
   var f = fs.createReadStream(filename, {encoding: 'utf8'});
@@ -38,17 +40,28 @@ function process_file(filename, done) {
     ind = line.indexOf('flags=');
     var f = parseInt(line.substr(ind+6));
     ind = line.indexOf('data=');
-    var data = [ ];
+
+    var data = [
+      f & 0xff, (f >> 8) & 0xff,
+      t & 0xff, (t >> 8) & 0xff, (t >> 16) & 0xff,
+      0, 0
+      ];
     for (i = ind + 5, il = line.length; i < il; i += 3) {
       data.push(parseInt(line.substr(i, 3), 16));
     }
-    out.push({t: t, f: f, d: data});
+
+    var plen = data.length - 7;
+    data[5] = plen & 0xff;
+    data[6] = (plen >> 8) & 0xff;
+    data.push('');  // to get the ending comma
+    stdout.write(data.join(','), 'utf8');
   }, done);
 }
 
 if (process.argv.length > 2) {
+  stdout.write("rawpcapdata = new Uint8Array([", "utf8");
   process_file(process.argv[2], function() {
-    console.log("packets = " + JSON.stringify(out) + ";");
+    stdout.write("]);");
   });
 } else {
   console.log("usage: <filename>");
