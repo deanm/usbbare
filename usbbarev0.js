@@ -296,7 +296,9 @@ function build_transfer_display(n, tr) {
 function build_packet_display(n, p) {
   while (n.firstChild) n.removeChild(n.firstChild);
 
-  var d = p.pp;
+  var pp = p.plen === 0 ? null : decoder.decode_packet(g_rawdata, p.p+7, p.plen);
+
+  var d = pp;
   if (d === null) {
     n.innerText = 'ERROR: Packet undecoded.';
     return;
@@ -351,7 +353,11 @@ function build_packet_line(p, num, height) {
     trans.innerText = p.transaction_id >> 1;
     trans.style.color = (p.transaction_id & 1) ? "#090" : "#900";
   }
-  desc.innerText = p.disp;
+
+  var pp = p.plen === 0 ? null : decoder.decode_packet(g_rawdata, p.p+7, p.plen);
+  if (pp !== null)
+    desc.innerText = decode_packet_to_display_string(pp, g_rawdata, p.p+7, p.plen);
+
   line.appendChild(n); line.appendChild(ts);
   line.appendChild(f); line.appendChild(trans);
   line.appendChild(desc);
@@ -784,7 +790,11 @@ function decode_packet_to_display_string(dp, buf, p, plen) {
   return text;
 }
 
+var g_rawdata;
+
 function process_and_init(rawdata) {
+  g_rawdata = rawdata;
+
   var transaction_machine = new usb_machines.TransactionMachine();
   var transfer_machine = new usb_machines.TransferMachine();
 
@@ -875,11 +885,10 @@ function process_and_init(rawdata) {
 
       var plen = rawdata[p + 5] | rawdata[p + 6] << 8;
       var pp = plen === 0 ? null : decoder.decode_packet(rawdata, p+7, plen);
-      var disp = pp === null ? null : decode_packet_to_display_string(pp, rawdata, p+7, plen);
       packets.push({
         f: rawdata[p] | rawdata[p+1] << 8,
         t: rawdata[p+2] | rawdata[p+3] << 8 | rawdata[p+4] << 8,
-        plen: plen, pp: pp, disp: disp});
+        p: p, plen: plen});
       if (pp !== null && pp.error === null) transaction_machine.process_packet(pp, i);
       p += 7 + plen;
       ++i;
