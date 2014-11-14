@@ -942,7 +942,7 @@ function process_and_init(rawdata) {
       var packet = {
         id: packet_id,
         f: rawdata[p] | rawdata[p+1] << 8,
-        t: rawdata[p+2] | rawdata[p+3] << 8 | rawdata[p+4] << 8,
+        t: rawdata[p+2] | rawdata[p+3] << 8 | rawdata[p+4] << 16,
         p: p, plen: plen};
       packets.push(packet);
       (success === true ? packets_succ : packets_fail).push(packet);
