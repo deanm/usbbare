@@ -1,5 +1,4 @@
 var structs = require('./structs.js');
-var decoder = require('./packet_decoder.js');
 var usb_states = require('./usb_states.js');
 
 function TransactionMachine() {
@@ -30,10 +29,7 @@ function TransactionMachine() {
   cb.spawn("bulkin_run", "transaction", "BulkTransactionIn", null);
   cb.spawn("bulkout_run", "transaction", "BulkTransactionOut", null);
 
-  this.process_packet = function(rp, id) {
-    // rp: raw packet, pp: parsed packet
-    var pp = decoder.decode_packet(rp);
-
+  this.process_packet = function(pp, id) {
     if (pp.error !== null) throw pp.error;
 
     if (pp.pid_type === 1 && pp.pid_name === 1) return null;  // Ignore SOF
