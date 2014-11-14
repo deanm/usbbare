@@ -315,6 +315,28 @@ function build_transfer_display(n, tr) {
   //n.appendChild(text_span(JSON.stringify(tr)));
 }
 
+function build_bit_display(name, num_bits, val, badbits, dispstr) {
+  var span = ce('span');
+  span.className = "usbbare-bitfield";
+  span.title = name + ': ' + val + (dispstr ? ' (' + dispstr + ')' : '');
+
+  var html = '';
+
+  for (var i = 0; i < num_bits; ++i) {
+    if (badbits & 1) {
+      html = '<span class="bad">' + (val & 1) + '</span>' + html;
+    } else {
+      html = (val & 1) + html;
+    }
+    val >>= 1;
+    badbits >>= 1;
+  }
+
+  span.innerHTML = html;
+
+  return span;
+}
+
 function build_packet_display(n, p) {
   while (n.firstChild) n.removeChild(n.firstChild);
 
@@ -329,21 +351,21 @@ function build_packet_display(n, p) {
   //n.appendChild(text_div(JSON.stringify(d)));
 
   var pid = g_rawdata[p.p+7];
-  var xor = 0;
-  for (var i = 0; i < 2; ++i) {
-    var pid_type = pid & 3;
-    var pid_name = (pid >> 2) & 3;
-    var pid_type_str = ["special", "token", "handshake", "data"][(pid_type^xor) & 3];
-    var pid_name_str = kPidNameTable[(pid^xor) & 0xf];
 
-    n.appendChild(make_field(i === 0 ? "PID" : "NPID", 4,
-      [make_bit_field_node("pid_type", ((pid_type^xor)&3) + " (" + pid_type_str + ")",
-                           to_bin_str(2, pid_type)),
-       make_bit_field_node("pid_name", ((pid_name^xor)&3) + " (" + pid_name_str + ")",
-                           to_bin_str(2, pid_name))]));
-    pid >>= 4;
-    xor = 0xf;
-  }
+  var pid_type = pid & 3;
+  var pid_name = (pid >> 2) & 3;
+  var pid_type_str = ["special", "token", "handshake", "data"][pid_type];
+  var pid_name_str = kPidNameTable[pid & 0xf];
+
+  n.appendChild(make_field("PID", 4, [
+      build_bit_display("pid_type", 2, pid_type, 0, pid_type_str),
+      build_bit_display("pid_name", 2, pid_name, 0, pid_name_str)]));
+
+  var npid_type = (pid >> 4) & 3;
+  var npid_name = (pid >> 6) & 3;
+  n.appendChild(make_field("NPID", 4, [
+      build_bit_display("npid_type", 2, npid_type, pid_type^~npid_type, null),
+      build_bit_display("npid_name", 2, npid_name, pid_name^~npid_name, null)]));
 
   if (d.pid_type === 1 || (d.pid_type === 0 && d.pid_name === 1)) {  // Token
     if (d.pid_type === 1 && d.pid_name === 1) {  // SOF
@@ -356,14 +378,14 @@ function build_packet_display(n, p) {
         [make_bit_field_node("EndPoint", d.EndPoint, to_bin_str(4, d.EndPoint))]));
     }
     var crc = crclib.crc5_16bit(g_rawdata[p.p+8], g_rawdata[p.p+9]);
-    n.appendChild(make_field("CRC5", 5,
-      [make_bit_field_node("CRC5", d.CRC5, to_bin_str(5, d.CRC5))]));
+    n.appendChild(make_field("CRC5", 4, [
+        build_bit_display("CRC5", 5, d.CRC5, crc^6, null)]));
   } else if (d.pid_type === 3) {  // Data
     n.appendChild(make_field("DATA", 4,
       [make_bit_field_node("data length", d.data.length, "...")]));
     var crc = crclib.crc16(g_rawdata, p.p+8, p.p+7+p.plen);
-    n.appendChild(make_field("CRC16", 11,
-      [make_bit_field_node("CRC16", d.CRC16, to_bin_str(16, d.CRC16))]));
+    n.appendChild(make_field("CRC16", 4, [
+        build_bit_display("CRC16", 16, d.CRC16, crc^0xb001, null)]));
   }
 }
 
@@ -949,11 +971,11 @@ function build_file_drop_area() {
 
   div.addEventListener("dragover", stopprop);
   div.addEventListener("dragenter", function(e) {
-    div.innerText = "Ohhhh yeah";
+    div.style.backgroundColor = 'cyan';
     return stopprop(e);
   });
   div.addEventListener("dragleave", function(e) {
-    div.innerText = "Drop a packet file";
+    div.style.backgroundColor = 'purple';
     return stopprop(e);
   });
   div.addEventListener("drop", function(e) {

@@ -107,6 +107,14 @@ div.usbbare-p {
   margin-left: 7px;
 }
 
+span.usbbare-bitfield {
+  padding-left: 0.3em;
+}
+
+span.usbbare-bitfield span.bad {
+  color: #c00;
+}
+
 span.usbbare-bitfield:hover {
   text-decoration: underline;
 }

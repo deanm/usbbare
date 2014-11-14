@@ -65,6 +65,12 @@ enum {
   SYNCH_FRAME = 0x820c;
 } StandardDeviceRequests;
 
+// HID1_11.pdf
+enum {
+  GET_REPORT = 0xa101;
+  SET_REPORT = 0x2109;
+} ClassSpecificHIDRequests;
+
 struct {
   bmRequestType bmRequestType:8;
   uint bRequest:8;
