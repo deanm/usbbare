@@ -16,6 +16,12 @@ function text_span(str, opts) {
   return e;
 }
 
+function stopprop(e) {
+  e.stopPropagation();
+  e.preventDefault();
+  return false;
+}
+
 function text_div(str, bp, lp) {
   var div = document.createElement('div');
   div.innerText = str;
@@ -781,7 +787,7 @@ function decode_packet_to_display_string(dp, buf, p, plen) {
   return text;
 }
 
-window.onload = function() {
+function process_and_init(rawdata) {
   var transaction_machine = new usb_machines.TransactionMachine();
   var transfer_machine = new usb_machines.TransferMachine();
 
@@ -846,16 +852,15 @@ window.onload = function() {
 
 
   console.log('Decoding packets and running state machines...');
-  for (var i = 0, p = 0, l = rawpcapdata.length; p < l; ++i) {
-    var plen = rawpcapdata[p + 5] | rawpcapdata[p + 6] << 8;
-    var pp = plen === 0 ? null : decoder.decode_packet(rawpcapdata, p+7, plen);
-    var disp = pp === null ? null : decode_packet_to_display_string(pp, rawpcapdata, p+7, plen);
+  for (var i = 0, p = 0, l = rawdata.length; p < l; ++i) {
+    var plen = rawdata[p + 5] | rawdata[p + 6] << 8;
+    var pp = plen === 0 ? null : decoder.decode_packet(rawdata, p+7, plen);
+    var disp = pp === null ? null : decode_packet_to_display_string(pp, rawdata, p+7, plen);
     packets.push({
-      f: rawpcapdata[p] | rawpcapdata[p+1] << 8,
-      t: rawpcapdata[p+2] | rawpcapdata[p+3] << 8 | rawpcapdata[p+4] << 8,
+      f: rawdata[p] | rawdata[p+1] << 8,
+      t: rawdata[p+2] | rawdata[p+3] << 8 | rawdata[p+4] << 8,
       plen: plen, pp: pp, disp: disp});
-    if (pp !== null)
-      transaction_machine.process_packet(pp, i);
+    if (pp !== null && pp.error === null) transaction_machine.process_packet(pp, i);
     p += 7 + plen;
   }
   console.log('...done');
@@ -863,4 +868,43 @@ window.onload = function() {
   build_ui(packets,
            transactions, transactions_succ, transactions_fail,
            transfers, transfers_succ, transfers_fail);
+}
+
+function build_file_drop_area() {
+  var div = ce('div',
+    {height: '100%', width: '100%',
+     backgroundColor: 'purple', color: 'white', fontSize: '8em'});
+  div.appendChild(text_div("Drop a packet file"));
+
+
+  div.addEventListener("dragenter", stopprop);
+  div.addEventListener("dragover", stopprop);
+  div.addEventListener("drop", function(e) {
+    console.log('drop');
+    var dt = e.dataTransfer;
+    if (dt === undefined) alert("no data transfer");
+    var files = dt.files;
+    for (var i = 0, il = files.length; i < il; ++i) {
+      var file = files[i];
+      var reader = new FileReader();
+      reader.onload = function(pe) {
+        if (pe.total !== pe.loaded) throw "xx";
+        var ab = reader.result;
+        process_and_init(new Uint8Array(ab));
+        document.body.removeChild(div);
+      };
+      reader.readAsArrayBuffer(file);
+      break;
+    }
+    return stopprop(e);
+  });
+  document.body.appendChild(div);
+}
+
+window.onload = function() {
+  if (rawpcapdata !== null) {
+    process_and_init(rawpcapdata);
+  } else {
+    build_file_drop_area();
+  }
 };

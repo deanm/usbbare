@@ -3,10 +3,17 @@ var structs = require('./structs.js');
 var decoder = require('./packet_decoder.js');
 var usb_machines = require('./usb_machines.js');
 
+var rawpcapdata = null;
+
+// Compatability between node Buffer and TypedArray.
+Buffer.prototype.subarray = function(a, b) {
+  return this.slice(a, b);
+};
+
 if (process.argv.length > 2) {
-  eval(fs.readFileSync(process.argv[2], 'utf8'));
+  rawpcapdata = fs.readFileSync(process.argv[2]);
 } else {
-  console.log("usage: <filename.js>");
+  console.log("usage: <filename.pcap>");
   process.exit(1);
 }
 
@@ -83,7 +90,7 @@ for (var i = 0, p = 0, l = rawpcapdata.length; p < l; ++i) {
     f: rawpcapdata[p] | rawpcapdata[p+1] << 8,
     t: rawpcapdata[p+2] | rawpcapdata[p+3] << 8 | rawpcapdata[p+4] << 8,
     plen: plen, pp: pp});
-  if (pp !== null)
+  if (pp !== null && pp.error === null)
     transaction_machine.process_packet(pp, i);
   p += 7 + plen;
 }

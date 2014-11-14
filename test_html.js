@@ -7,15 +7,12 @@ function roll_up_js(filename) {
   });
 }
 
-if (process.argv.length > 2) {
-  //eval(fs.readFileSync(process.argv[2], 'utf8'));
-} else {
-  console.log("usage: <filename.js>");
-  process.exit(1);
-}
-
 console.log('<html><head><style>' + fs.readFileSync(__dirname + '/usbbarev0.css', 'utf8'));
 console.log('</style><script>');
-console.log(fs.readFileSync(process.argv[2], 'utf8'));
+if (process.argv > 2) {
+  console.log(fs.readFileSync(process.argv[2], 'utf8'));
+} else {
+  console.log("rawpcapdata = null;");
+}
 console.log('</script><script>' + roll_up_js('/usbbarev0.js'));
 console.log('</script><body></body></html>');
