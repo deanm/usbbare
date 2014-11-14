@@ -18,6 +18,12 @@ var kShorthands = [
 ];
 
 function find_short_replacement(s) {
+  if (s === "SSPLIT") {
+    return ["pid_type", 0, "pid_name", 2, "SC", 0];
+  } else if (s === "CSPLIT") {
+    return ["pid_type", 0, "pid_name", 2, "SC", 1];
+  }
+
   for (var i = 0, il = kShorthands.length; i < il; ++i) {
     var o = kShorthands[i];
     for (var j = 0, jl = o.length; j < jl; ++j) {
@@ -34,7 +40,9 @@ function litstr(str) {
   return JSON.stringify(str);
 }
 
-var kPPFields = ["pid_type", "pid_name", "data", "ADDR", "EndPoint"];
+var kPPFields = [
+  "pid_type", "pid_name", "data", "ADDR", "EndPoint",
+  "HubAddr", "SC", "Port", "S", "U", "ET"];
 var kTransactionFields = [
   "ADDR",
   "EndPoint",
@@ -82,7 +90,9 @@ function generate_rule_code(locals, transtype, typename, rule, pre) {
     for (var w = 0, wl = pred.length; w < wl; w += 2) {
       if (pred[w+1] !== null) continue;
       var r = find_short_replacement(pred[w]);
-      if (r.length === 4)
+      if (r.length === 6)
+        pred.splice(w, 2, r[0], r[1], r[2], r[3], r[4], r[5]);
+      else if (r.length === 4)
         pred.splice(w, 2, r[0], r[1], r[2], r[3]);
       else
         pred.splice(w, 2, r[0], r[1]);
@@ -169,6 +179,13 @@ function generate_rule_code(locals, transtype, typename, rule, pre) {
         break;
       case "die":
         if (next !== "kPass") throw "xx"; next = "kEnd";
+        break;
+      case "debuglog":
+        code += pre + '  console.log("debuglog");\n';
+        code += pre + '  console.log(_out);\n';
+        code += pre + '  console.log(_pp);\n';
+        var sargs = args.map(scope_mapper);
+        code += pre + '  ' + sargs.map(function(x) { return 'console.log('+x+')'; }) + ';\n';
         break;
       default:
         throw command.name;

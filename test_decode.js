@@ -60,16 +60,13 @@ function OnControlTransfer(addr, endp, setup, data) {
 var transaction_id = 0;
 
 transaction_machine.OnEmit = function(transtype, typename, success, out, state) {
-  //console.log(["emit", transtype, typename, success, state.id]);
+  console.log(["emit", transtype, typename, success, transaction_id]);
   if (success === true) {
-    var ids = state.ids;
     var tr = {id: transaction_id,
               typename: typename,
               success: success,
-              out: out,
-              ids: ids,
-              t: packets[ids[0]].t /* TODO handle overflow */};
-    transfer_machine.process_transaction(tr, tr.id);
+              out: out};
+    //transfer_machine.process_transaction(tr, tr.id);
   }
   ++transaction_id;
 };

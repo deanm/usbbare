@@ -417,6 +417,22 @@ function build_packet_display(n, p) {
     var crc = crclib.crc16(g_rawdata, p.p+8, p.p+7+p.plen);
     n.appendChild(make_field("CRC16", 4, [
         build_bit_display("CRC16", 16, d.CRC16, crc^0xb001, null)]));
+  } else if (d.pid_type === 0 && d.pid_name === 2) {  // SPLIT
+    n.appendChild(make_field("HubAddr", 4, [
+        build_bit_display("HubAddr", 7, d.HubAddr, 0, null)]));
+    n.appendChild(make_field("SC", 2, [
+        build_bit_display("SC", 1, d.SC, 0, d.SC ? "Complete" : "Start")]));
+    n.appendChild(make_field("Port", 4, [
+        build_bit_display("Port", 7, d.Port, 0, null)]));
+    n.appendChild(make_field("S", 2, [
+        build_bit_display("S", 1, d.S, 0, d.S ? "Low Speed" : "Full Speed")]));
+    n.appendChild(make_field("U", 2, [
+        build_bit_display("U", 1, d.S, 0, null)]));
+    n.appendChild(make_field("ET", 2, [
+        build_bit_display("ET", 2, d.ET, 0, null)]));
+    var crc = crclib.crc5_24bit(g_rawdata[p.p+8], g_rawdata[p.p+9], g_rawdata[p.p+10]);
+    n.appendChild(make_field("CRC5", 4, [
+        build_bit_display("CRC5", 5, d.CRC5, crc^6, null)]));
   }
 }
 
@@ -828,9 +844,19 @@ function decode_packet_to_display_string(dp, buf, p, plen) {
   var text = null;
   switch (pid_type) {
     case 0:
-      text = "special " + ["RESERVED", "PING", "SPLIT", "PRE/ERR"][pid_name];
-      if (pid_name === 1) {  // PING
-        text += " ADDR: " + dp.ADDR + " EndPoint: " + dp.EndPoint;
+      switch (pid_name) {
+        case 0:
+          text = "special RESERVED";
+          break;
+        case 1:
+          text = "special PING ADDR: " + dp.ADDR + " EndPoint: " + dp.EndPoint;
+          break;
+        case 2:
+          text = (dp.SC ? "special CSPLIT " : "special SSPLIT ") + dp.HubAddr + ":" + dp.Port;
+          break;
+        case 3:
+          text = "special PRE/ERR";
+          break;
       }
       break;
 
@@ -959,7 +985,8 @@ function process_and_init(rawdata) {
       var success =
         pp !== null &&  // Check decode
         (pp.CRC5 === undefined ||  // Check CRC5
-          (plen === 3 && crclib.crc5_16bit(rawdata[p+8], rawdata[p+9]) === 6)) &&
+          ((plen === 3 && crclib.crc5_16bit(rawdata[p+8], rawdata[p+9]) === 6) ||
+           (plen === 4 && crclib.crc5_24bit(rawdata[p+8], rawdata[p+9], rawdata[p+10]) === 6))) &&
         (pp.CRC16 === undefined ||  // Check CRC16
           (plen >= 3 && crclib.crc16(rawdata, p+8, p+7+plen) === 0xb001));
 

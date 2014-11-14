@@ -22,6 +22,15 @@ function decode_packet(buf, p, plen) {
         res.CRC5 = (r >> 11) & 0x1f;
       } else if (pid_name === 2) {
         if (plen != 4) return null;
+        var r = buf[p+1] | buf[p+2] << 8 | buf[p+3] << 16;
+        res.HubAddr = r & 0x7f;
+        res.SC = (r >> 7) & 1;
+        r >>= 8;
+        res.Port = r & 0x7f;
+        res.S = (r >> 7) & 1;
+        res.U = (r >> 8) & 1;
+        res.ET = (r >> 9) & 3;
+        res.CRC5 = (r >> 10) & 0x1f;
       }
       break;
 

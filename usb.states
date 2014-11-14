@@ -7,6 +7,11 @@
 //   the transaction and return no response.
 transaction SetupTransaction : ADDR, EndPoint, setup {
   state setup_run {
+    want SSPLIT {
+      spawn setup_run;
+      transition ssplit_setup HubAddr Port;
+    }
+
     want SETUP {
       spawn setup_run;
       capture ADDR ADDR;
@@ -19,6 +24,51 @@ transaction SetupTransaction : ADDR, EndPoint, setup {
     need DATA0 data.length:8 parse:setup {
       capture setup setup;
       transition setup_ack;
+    }
+  }
+
+  state ssplit_setup : hub, port {
+    want SETUP {
+      capture ADDR ADDR;
+      capture EndPoint EndPoint;
+      transition ssplit_setup_data ADDR EndPoint hub port;
+    }
+    need {
+      die;  // Don't cause a failed transaction just from the SSPLIT.
+    }
+  }
+
+  state ssplit_setup_data : addr, endp, hub, port {
+    need DATA0 data.length:8 parse:setup {
+      capture setup setup;
+      transition ssplit_setup_ack addr endp hub port;
+    }
+  }
+
+  state ssplit_setup_ack : addr, endp, hub, port {
+    need ACK {
+      transition csplit addr endp hub port;
+    }
+  }
+
+  state csplit : addr, endp, hub, port {
+    want CSPLIT HubAddr:hub Port:port {
+      transition csplit_setup addr endp hub port;
+    }
+  }
+
+  state csplit_setup : addr, endp, hub, port {
+    want SETUP ADDR:addr EndPoint:endp {
+      transition csplit_handshake addr endp hub port;
+    }
+  }
+
+  state csplit_handshake : addr, endp, hub, port {
+    want NYET {
+      transition csplit addr endp hub port;
+    }
+    need ACK {
+      success;
     }
   }
 

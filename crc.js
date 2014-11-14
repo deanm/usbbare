@@ -12,6 +12,13 @@ function crc5_16bit(byte0, byte1) {  // Correct CRC should return 0x06
   return kCrc5Table[b & 0x0F] ^ kCrc5Table[b >> 4 | 16];
 }
 
+function crc5_24bit(byte0, byte1, byte2) {
+  var b = byte0 ^ 0x1F;
+  b = byte1 ^ (kCrc5Table[b & 0x0F] ^ kCrc5Table[b >> 4 | 16]);
+  b = byte2 ^ (kCrc5Table[b & 0x0F] ^ kCrc5Table[b >> 4 | 16]);
+  return kCrc5Table[b & 0x0F] ^ kCrc5Table[b >> 4 | 16];
+}
+
 // CRC16 implementation taken from somewhere floating around, standard table
 // driven approach as implemented in many languages.
 var CRC_TABLE = [
@@ -68,5 +75,6 @@ function crc16(data, start_pos, end_pos)
 
 try {
   exports.crc5_16bit = crc5_16bit;
+  exports.crc5_24bit = crc5_24bit;
   exports.crc16 = crc16;
 } catch(e) { }
