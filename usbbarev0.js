@@ -377,9 +377,16 @@ function build_transfer_line(tr, num, height) {
   var desc_str = tr.typename;
   // "ControlTransfer (SET_ADDRESS)", etc.
   if (desc_str === "ControlTransfer" && tr.out.setup) {
-    desc_str += tr.out.setup.get_value_at(2) ? " \u2190 " : " \u2192 ";
-    if (tr.out.setup.get_display_at(3))
-      desc_str += " (" + tr.out.setup.get_display_at(3) + ")";
+    var setup = tr.out.setup;
+    desc_str += setup.get_value_at(2) ? " \u2190 " : " \u2192 ";
+    // TODO: figure out how to do this cleaner than putting it all back together.
+    var requesttype_and_request =
+      setup.get_value_at(0) << 8 | setup.get_value_at(1) << 13 | setup.get_value_at(2) << 15 |
+      setup.get_value_at(3);
+    console.log(requesttype_and_request);
+    var display = structs.eStandardDeviceRequests[requesttype_and_request];
+    if (display !== undefined)
+      desc_str += " (" + display + ")";
   }
 
   desc.innerText = desc_str;

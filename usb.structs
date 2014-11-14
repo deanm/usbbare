@@ -34,23 +34,40 @@ struct {
   RequestTypeTransferDirection transferDirection:1;
 } bmRequestType;
 
+// 9.4 Standard Device Requests
+// bmRequestType and bRequest combined
+// D_ Device, I_ Interface, E_ Endpoint
 enum {
-  GET_STATUS = 0;
-  CLEAR_FEATURE = 1;
-  SET_FEATURE = 3;
-  SET_ADDRESS = 5;
-  GET_DESCRIPTOR = 6;
-  SET_DESCRIPTOR = 7;
-  GET_CONFIGURATION = 8;
-  SET_CONFIGURATION = 9;
-  GET_INTERFACE = 10;
-  SET_INTERFACE = 11;
-  SYNCH_FRAME = 12;
-} SetupRequestCodes;
+  D_CLEAR_FEATURE = 0x0001;
+  I_CLEAR_FEATURE = 0x0101;
+  E_CLEAR_FEATURE = 0x0201;
+  //D_GET_CONFIGURATION = 0x8008;
+  GET_CONFIGURATION = 0x8008;
+  //D_GET_DESCRIPTOR = 0x8006;
+  GET_DESCRIPTOR = 0x8006;
+  //I_GET_INTERFACE = 0x810a;
+  GET_INTERFACE = 0x810a;
+  D_GET_STATUS = 0x8000;
+  I_GET_STATUS = 0x8100;
+  E_GET_STATUS = 0x8200;
+  //D_SET_ADDRESS = 0x0005;
+  SET_ADDRESS = 0x0005;
+  //D_SET_CONFIGURATION = 0x0009;
+  SET_CONFIGURATION = 0x0009;
+  //D_SET_DESCRIPTOR = 0x0007;
+  SET_DESCRIPTOR = 0x0007;
+  D_SET_FEATURE = 0x0003;
+  I_SET_FEATURE = 0x0103;
+  E_SET_FEATURE = 0x0203;
+  //I_SET_INTERFACE = 0x010b;
+  SET_INTERFACE = 0x010b;
+  //E_SYNCH_FRAME = 0x820c;
+  SYNCH_FRAME = 0x820c;
+} StandardDeviceRequests;
 
 struct {
   bmRequestType bmRequestType:8;
-  SetupRequestCodes bRequest:8;
+  uint bRequest:8;
   uint wValue:16;
   uint wIndex:16;
   uint wLength:16;
