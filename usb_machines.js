@@ -14,7 +14,7 @@ function TransactionMachine() {
     },
     spawn: function(statename, transtype, typename, state) {
       //console.log(['spawn', statename, transtype, typename]);
-      name = "state_" + typename + "_" + statename;
+      name = "state_" + typename + "_" + statename + "0";
       if (!(name in usb_states)) throw name;
       states.push({
         out: new usb_states[typename],
@@ -48,11 +48,14 @@ function TransactionMachine() {
       }
 
       if (res.next === usb_states.kEnd) {
+        //console.log(['die', state.transtype, state.typename]);
         states.splice(i, 1); --i; --il;
         continue;
       }
 
       state.s = res.next;
+
+      if (res.do_break === true) break;
     }
   };
 }
@@ -70,7 +73,7 @@ function TransferMachine() {
     },
     spawn: function(statename, transtype, typename, state) {
       //console.log(['spawn', statename, transtype, typename]);
-      name = "state_" + typename + "_" + statename;
+      name = "state_" + typename + "_" + statename + "0";
       if (!(name in usb_states)) throw name;
       states.push({
         out: new usb_states[typename],

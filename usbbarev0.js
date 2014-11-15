@@ -247,7 +247,7 @@ function build_transaction_display(n, tr) {
   while (n.firstChild) n.removeChild(n.firstChild);
 
   n.appendChild(text_div('Type: ' + tr.typename));
-  n.appendChild(text_div('Success: ' + (tr.id >> 1 ? 'true' : 'false')));
+  n.appendChild(text_div('Success: ' + ((tr.id & 1) ? 'true' : 'false')));
   n.appendChild(text_div('Packet IDs: ' + tr.packets.map(function(x) { return x.id >> 1; })));
   var out = tr.out;
   for (key in out) {
@@ -426,14 +426,15 @@ function build_packet_display(n, p) {
         build_bit_display("Port", 7, d.Port, 0, null)]));
     n.appendChild(make_field("S", 2, [
         build_bit_display("S", 1, d.S, 0, d.S ? "Low Speed" : "Full Speed")]));
-    n.appendChild(make_field("U", 2, [
-        build_bit_display("U", 1, d.S, 0, null)]));
+    n.appendChild(make_field("E/U", 2, [
+        build_bit_display("EU", 1, d.EU, 0, null)]));
     n.appendChild(make_field("ET", 2, [
-        build_bit_display("ET", 2, d.ET, 0, null)]));
+        build_bit_display("ET", 2, d.ET, 0, ["Control", "Isochronous", "Bulk", "Interrupt"][d.ET])]));
     var crc = crclib.crc5_24bit(g_rawdata[p.p+8], g_rawdata[p.p+9], g_rawdata[p.p+10]);
     n.appendChild(make_field("CRC5", 4, [
         build_bit_display("CRC5", 5, d.CRC5, crc^6, null)]));
   }
+  //n.appendChild(text_div(p.transaction_ids));
 }
 
 function build_packet_row(p, height) {
@@ -852,7 +853,8 @@ function decode_packet_to_display_string(dp, buf, p, plen) {
           text = "special PING ADDR: " + dp.ADDR + " EndPoint: " + dp.EndPoint;
           break;
         case 2:
-          text = (dp.SC ? "special CSPLIT " : "special SSPLIT ") + dp.HubAddr + ":" + dp.Port;
+          text = (dp.SC ? "special CSPLIT " : "special SSPLIT ") + dp.HubAddr + ":" + dp.Port +
+              " (" + ["Control", "Isochronous", "Bulk", "Interrupt"][dp.ET] + ")";
           break;
         case 3:
           text = "special PRE/ERR";
@@ -918,7 +920,8 @@ function process_and_init(rawdata) {
 
     /*
     for (var i = 0, il = pkts.length; i < il; ++i) {
-      pkts[i].transaction_id = transaction_id;
+      if (pkts[i].transaction_ids === undefined) pkts[i].transaction_ids = [ ];
+      pkts[i].transaction_ids.push(transaction_id);
     }
     */
 

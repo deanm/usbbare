@@ -136,6 +136,8 @@ function generate_rule_code(locals, transtype, typename, rule, pre) {
   var next = "kPass";
   var next_name = null;
 
+  var do_break = false;
+
   for (var j = 0, jl = rule.commands.length; j < jl; ++j) {
     var command = rule.commands[j];
     if (command.node_type === "rule") {
@@ -153,7 +155,7 @@ function generate_rule_code(locals, transtype, typename, rule, pre) {
       case "transition":
         if (next !== "kPass") throw "xx";
         var sargs = args.slice(1).map(scope_mapper);
-        next = "state_" + typename + "_" + args[0] + "(" + sargs.join(", ") + ")";
+        next = "state_" + typename + "_" + args[0] + sargs.length + "(" + sargs.join(", ") + ")";
         next_name = args[0];
         break;
       case "append":
@@ -180,6 +182,9 @@ function generate_rule_code(locals, transtype, typename, rule, pre) {
       case "pop":
         code += pre + "  _state." + args[0] + ".pop();\n";
         break;
+      case "break":
+        do_break = true;
+        continue;
       case "die":
         if (next !== "kPass") throw "xx"; next = "kEnd";
         break;
@@ -196,7 +201,7 @@ function generate_rule_code(locals, transtype, typename, rule, pre) {
     }
   }
   if (next_name === null) next_name = next;
-  code += pre + "  return {next: " + next + ", next_name: " + litstr(transtype + "::" + next_name) + "};\n";
+  code += pre + "  return {next: " + next + ", next_name: " + litstr(transtype + "::" + next_name) + ", do_break: " + do_break + "};\n";
   code += pre + "}\n";
   // TODO: check was last rule
   if (rule.type === "need") {  // Same as calling failed
@@ -207,7 +212,7 @@ function generate_rule_code(locals, transtype, typename, rule, pre) {
 }
 
 function generate_state_code(n, transtype, typename) {
-  var funcname = "state_" + typename + "_" + n.name;
+  var funcname = "state_" + typename + "_" + n.name + n.inputs.length;
   exports.push(funcname);
   var code = "function " + funcname + "(" + n.inputs.join(", ") + ") {\n" +
              "  return function(_pp, _out, _meta, _state, _cb) {\n";

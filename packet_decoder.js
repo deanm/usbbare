@@ -28,7 +28,7 @@ function decode_packet(buf, p, plen) {
         r >>= 8;
         res.Port = r & 0x7f;
         res.S = (r >> 7) & 1;
-        res.U = (r >> 8) & 1;
+        res.EU = (r >> 8) & 1;
         res.ET = (r >> 9) & 3;
         res.CRC5 = (r >> 10) & 0x1f;
       }

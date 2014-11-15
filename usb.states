@@ -7,7 +7,7 @@
 //   the transaction and return no response.
 transaction SetupTransaction : ADDR, EndPoint, setup {
   state setup_run {
-    want SSPLIT {
+    want SSPLIT ET:0 {
       spawn setup_run;
       transition ssplit_setup HubAddr Port;
     }
@@ -25,6 +25,7 @@ transaction SetupTransaction : ADDR, EndPoint, setup {
       capture ADDR ADDR;
       capture EndPoint EndPoint;
       transition ssplit_setup_data ADDR EndPoint hub port;
+      break;  // We don't want to newly spawned state machine processing this same packet again.
     }
     need {
       die;  // Don't cause a failed transaction just from the SSPLIT.
@@ -52,7 +53,7 @@ transaction SetupTransaction : ADDR, EndPoint, setup {
   }
 
   state csplit : addr, endp, hub, port {
-    want CSPLIT HubAddr:hub Port:port {
+    want CSPLIT ET:0 HubAddr:hub Port:port {
       transition csplit_setup addr endp hub port;
     }
   }
@@ -60,6 +61,7 @@ transaction SetupTransaction : ADDR, EndPoint, setup {
   state csplit_setup : addr, endp, hub, port {
     want SETUP ADDR:addr EndPoint:endp {
       transition csplit_handshake addr endp hub port;
+      break;
     }
   }
 
@@ -82,7 +84,7 @@ transaction SetupTransaction : ADDR, EndPoint, setup {
 
 transaction BulkTransactionIn : ADDR, EndPoint, data {
   state bulkin_run {
-    want SSPLIT {
+    want SSPLIT ET:0, SSPLIT ET:2 {  // Control or Bulk
       spawn bulkin_run;
       transition ssplit_in HubAddr Port;
     }
@@ -100,6 +102,7 @@ transaction BulkTransactionIn : ADDR, EndPoint, data {
       capture ADDR ADDR;
       capture EndPoint EndPoint;
       transition ssplit_ack ADDR EndPoint hub port;
+      break;
     }
     need {
       die;  // Don't cause a failed transaction just from the SSPLIT.
@@ -113,7 +116,7 @@ transaction BulkTransactionIn : ADDR, EndPoint, data {
   }
 
   state csplit : addr, endp, hub, port {
-    want CSPLIT HubAddr:hub Port:port {
+    want CSPLIT ET:0 HubAddr:hub Port:port, CSPLIT ET:2 HubAddr:hub Port:port {
       transition csplit_in addr endp hub port;
     }
   }
@@ -121,21 +124,28 @@ transaction BulkTransactionIn : ADDR, EndPoint, data {
   state csplit_in : addr, endp, hub, port {
     want IN ADDR:addr EndPoint:endp {
       transition csplit_data addr endp hub port;
+      break;
     }
   }
 
   state csplit_data : addr, endp, hub, port {
+    want NAK {
+      die;  // Don't treat as a failed transaction.
+    }
     want NYET {
       pop packets; pop packets; pop packets;  // Clean up the packet IDs.
       transition csplit addr endp hub port;
     }
-    need pid_type: DATA {
+    need pid_type:DATA {
       capture data data;
       success;
     }
   }
 
   state bulkin_data {
+    want NAK {
+      die;  // Don't treat as a failed transaction.
+    }
     need pid_type:DATA {
       capture data data;
       transition bulkin_ack;
@@ -151,11 +161,64 @@ transaction BulkTransactionIn : ADDR, EndPoint, data {
 
 transaction BulkTransactionOut : ADDR, EndPoint, data {
   state bulkout_run {
+    want SSPLIT ET:0, SSPLIT ET:2 {  // Control or Bulk
+      spawn bulkout_run;
+      transition ssplit_out HubAddr Port;
+    }
+
     want OUT {
       spawn bulkout_run;
       capture ADDR ADDR;
       capture EndPoint EndPoint;
       transition bulkout_data;
+    }
+  }
+
+  state ssplit_out : hub, port {
+    want OUT {
+      capture ADDR ADDR;
+      capture EndPoint EndPoint;
+      transition ssplit_data ADDR EndPoint hub port;
+      break;
+    }
+    need {
+      die;  // Don't cause a failed transaction just from the SSPLIT.
+    }
+  }
+
+  state ssplit_data : addr, endp, hub, port {
+    need pid_type:DATA {
+      capture data data;
+      transition ssplit_ack addr endp hub port;
+    }
+  }
+
+  state ssplit_ack : addr, endp, hub, port {
+    need ACK {
+      transition csplit addr endp hub port;
+    }
+  }
+
+  state csplit : addr, endp, hub, port {
+    want CSPLIT ET:0 HubAddr:hub Port:port, CSPLIT ET:2 HubAddr:hub Port:port {
+      transition csplit_out addr endp hub port;
+    }
+  }
+
+  state csplit_out : addr, endp, hub, port {
+    want OUT ADDR:addr EndPoint:endp {
+      transition csplit_ack addr endp hub port;
+      break;
+    }
+  }
+
+  state csplit_ack : addr, endp, hub, port {
+    want NYET {
+      pop packets; pop packets; pop packets;  // Clean up the packet IDs.
+      transition csplit addr endp hub port;
+    }
+    need ACK {
+      success;
     }
   }
 
@@ -190,6 +253,12 @@ transfer ControlTransfer : ADDR, EndPoint, setup, data {
     }
   }
 
+  // 9.3.5 wLength
+  // On an input request, a device must never return more data than is
+  // indicated by the wLength value; it may return less. On an output request,
+  // wLength will always indicate the exact amount of data to be sent by the
+  // host. Device behavior is undefined if the host should send more data than
+  // is specified in wLength.
   state ct_datain0 : addr, endp, bytes_left, bytes {
     want ADDR:addr EndPoint:endp {
       want bytes_left:0 {
@@ -198,9 +267,14 @@ transfer ControlTransfer : ADDR, EndPoint, setup, data {
           success;
         }
       }
+      want BulkTransactionOut data.length:0 {  // Read less than wLength.
+        capture data bytes;
+        success;
+      }
       need BulkTransactionIn {
         dec bytes_left data.length;
         append bytes data;
+        capture data bytes;  // So that failed transfers have any data there was.
         transition ct_datain0 addr endp bytes_left bytes;
       }
     }
@@ -216,6 +290,7 @@ transfer ControlTransfer : ADDR, EndPoint, setup, data {
       need BulkTransactionOut {
         dec bytes_left data.length;
         append bytes data;
+        capture data bytes;  // So that failed transfers have any data there was.
         transition ct_dataout0 addr endp bytes_left bytes;
       }
     }
