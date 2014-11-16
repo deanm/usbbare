@@ -126,6 +126,9 @@ transaction BulkTransactionIn : ADDR, EndPoint, data {
       transition csplit_data addr endp hub port;
       break;
     }
+    need {
+      transition csplit addr endp hub port;
+    }
   }
 
   state csplit_data : addr, endp, hub, port {
@@ -210,6 +213,9 @@ transaction BulkTransactionOut : ADDR, EndPoint, data {
       transition csplit_ack addr endp hub port;
       break;
     }
+    need {
+      transition csplit addr endp hub port;
+    }
   }
 
   state csplit_ack : addr, endp, hub, port {
@@ -231,6 +237,51 @@ transaction BulkTransactionOut : ADDR, EndPoint, data {
 
   state bulkout_ack {
     need ACK {
+      success;
+    }
+  }
+}
+
+transaction InterruptTransactionIn : ADDR, EndPoint, data {
+  state run {
+    want SSPLIT ET:3 {  // Interrupt
+      spawn run;
+      transition ssplit_in HubAddr Port;
+    }
+  }
+
+  state ssplit_in : hub, port {
+    want IN {
+      capture ADDR ADDR;
+      capture EndPoint EndPoint;
+      transition csplit ADDR EndPoint hub port;
+      break;
+    }
+    need {
+      die;  // Don't cause a failed transaction just from the SSPLIT.
+    }
+  }
+
+  state csplit : addr, endp, hub, port {
+    want CSPLIT ET:3 HubAddr:hub Port:port {
+      transition csplit_in addr endp hub port;
+    }
+  }
+
+  state csplit_in : addr, endp, hub, port {
+    want IN ADDR:addr EndPoint:endp {
+      transition csplit_data addr endp hub port;
+      break;
+    }
+    need {
+      transition csplit addr endp hub port;
+    }
+  }
+
+  state csplit_data : addr, endp, hub, port {
+    want NAK { die; }
+    need DATA0, DATA1 {
+      capture data data;
       success;
     }
   }

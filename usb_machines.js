@@ -28,6 +28,7 @@ function TransactionMachine() {
   cb.spawn("setup_run", "transaction", "SetupTransaction", null);
   cb.spawn("bulkin_run", "transaction", "BulkTransactionIn", null);
   cb.spawn("bulkout_run", "transaction", "BulkTransactionOut", null);
+  cb.spawn("run", "transaction", "InterruptTransactionIn", null);
 
   this.process_packet = function(pp, packet) {
     if (pp.pid_type === 1 && pp.pid_name === 1) return null;  // Ignore SOF
