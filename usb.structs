@@ -65,6 +65,44 @@ enum {
   SYNCH_FRAME = 0x820c;
 } StandardDeviceRequests;
 
+// 11.24.2 Class-specific Requests
+enum {
+  ClearHubFeature = 0x2001;
+  ClearPortFeature = 0x2301;
+  ClearTTBuffer = 0x2308;
+  GetHubDescriptor = 0xa006;
+  GetHubStatus = 0xa000;
+  GetPortStatus = 0xa300;
+  ResetTT = 0x2309;
+  SetHubDescriptor = 0x2007;
+  SetHubFeature = 0x2003;
+  SetPortFeature = 0x2303;
+  GetTTState = 0xa30a;
+  StopTT = 0x230b;
+} ClassSpecificRequests;
+
+enum {
+  C_HUB_LOCAL_POWER = 0;
+  C_HUB_OVER_CURRENT = 1;
+} HubClassFeatureSelectorsHub;
+
+enum {
+  PORT_CONNECTION = 0;
+  PORT_ENABLE = 1;
+  PORT_SUSPEND = 2;
+  PORT_OVER_CURRENT = 3;
+  PORT_RESET = 4;
+  PORT_POWER = 8;
+  PORT_LOW_SPEED = 9;
+  C_PORT_CONNECTION = 16;
+  C_PORT_ENABLE = 17;
+  C_PORT_SUSPEND = 18;
+  C_PORT_OVER_CURRENT = 19;
+  C_PORT_RESET = 20;
+  PORT_TEST = 21;
+  PORT_INDICATOR = 22;
+} HubClassFeatureSelectorsPort;
+
 // HID1_11.pdf
 enum {
   GET_REPORT = 0xa101;
@@ -414,3 +452,64 @@ struct {
   uint bLength:8;
 
 } StandardEndpointDescriptor;
+
+// 11.23.2.1 Hub Descriptor
+struct {
+  uint bDescLength:8;
+  uint bDescriptorType:8;
+  uint bNbrPorts:8;
+  uint wHubCharacteristics:16;
+  uint bPwrOn2PwrGood:8;
+  uint bHubContrCurrent:8;
+  // DeviceRemovable:variable
+  // PortPwrCtrlMask:variable
+} HubDescriptorHeader;
+
+// 11.24.2.6 Get Hub Status
+enum {
+  Good = 0;
+  Lost = 1;
+} HubStatusHubStatusLocalPowerSource;
+
+enum {
+  NoOverCurrent = 0;
+  OverCurrent = 1;
+} HubStatusHubStatusOverCurrent;
+
+struct {
+  HubStatusHubStatusLocalPowerSource LocalPowerSource:1;
+  HubStatusHubStatusOverCurrent OverCurrent:1;
+  uint Reserved:14;
+} HubStatusHubStatus;
+
+struct {
+  uint LocalPowerStatusChange:1;
+  uint OverCurrentChange:1;
+  uint Reserved:14;
+} HubStatusHubChange;
+
+struct {
+  HubStatusHubStatus wHubStatus:16;
+  HubStatusHubChange wHubChange:16;
+} HubStatus;
+
+// 11.24.2.7 Get Port Status
+struct {
+  uint Connection:1;
+  uint Enabled:1;
+  uint Suspended:1;
+  uint OverCurrent:1;
+  uint Reset:1;
+  uint Reserved0:3;
+  uint Power:1;
+  uint LowSpeed:1;
+  uint HighSpeed:1;
+  uint Test:1;
+  uint Indicator:1;
+  uint Reserved1:3;
+} HubPortStatusPortStatus;
+
+struct {
+  HubPortStatusPortStatus wPortStatus:16;
+  HubPortStatusPortStatus wPortChange:16;
+} HubPortStatus;

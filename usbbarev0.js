@@ -170,15 +170,22 @@ function look_up_interface_and_set_names(iface) {
 }
 
 function disect_device_desc(n, flat_data) {
-  var descriptor = new structs.Fields();
+  var desc = new structs.Fields();
   if (structs.parse_StandardDeviceDescriptor(
-      descriptor, flat_data, 0, flat_data.length) === false) {
-    n.appendChild(text_div("failed to parse device descriptor", 6, 15));
+      desc, flat_data, 0, flat_data.length) === false) {
+    n.appendChild(text_div("failed to parse device desc", 6, 15));
     return;
   }
 
   n.appendChild(text_div("DEVICE", 2));
-  n.appendChild(build_table_from_fields(descriptor));
+  if (desc.get_value("bDeviceClass") === 9 /* HUB_CLASSCODE */ &&
+      desc.get_value("bDeviceSubClass") === 0) {
+    desc.set_display_at(3, "HUB");
+    desc.set_display_at(5,
+        ["FullSpeed", "HighSpeedSingleTT", "HighSpeedMultipleTT"][desc.get_value_at(5)]);
+  }
+
+  n.appendChild(build_table_from_fields(desc));
 }
 
 function disect_config_desc(n, flat_data) {
@@ -267,19 +274,24 @@ function build_transaction_display(n, tr) {
 }
 
 function build_control_transfer_display(n, tr) {
+  var setup = tr.out.setup;
+  if (setup === undefined) return;
+
+  var type = decode_control_transfer_setup(setup, false);
+  n.appendChild(text_div("Setup: " + type, 2));
+  n.appendChild(build_table_from_fields(setup));
+
   var data = tr.out.data;
   if (data === undefined || data.length === 0) return;
   var flat_data = flatten_chunked(data);
 
-  var setup = tr.out.setup;
-
-  var bRequest = setup.get_value("bRequest");
-  switch (bRequest) {
-    case 6: // GET_DESCRIPTOR
+  switch (type) {
+    case "GET_DESCRIPTOR":
       var wvalue = setup.get_value("wValue");
       var desctype = wvalue >> 8, descidx = wvalue & 0xff;
 
-      n.appendChild(text_div("Descriptor Type: " + structs.eDescriptorTypes[desctype]), 5);
+      n.appendChild(text_div("Descriptor Type: " + desctype +
+                             " (" + structs.eDescriptorTypes[desctype] + ")"), 5);
       n.appendChild(text_div("Descriptor Index: " + descidx),  5);
 
       switch (desctype) {
@@ -308,8 +320,29 @@ function build_control_transfer_display(n, tr) {
       }
       break;
 
-    default:
-      console.log("Unknown bRequest: " + bRequest);
+    case "GetHubStatus":
+      var hubstatus = new structs.Fields();
+      if (structs.parse_HubStatus(
+          hubstatus, flat_data, 0, flat_data.length) === false) {
+        n.appendChild(text_div("failed to parse hub status", 6, 15));
+        return;
+      }
+
+      n.appendChild(text_div("Hub Status: " + type, 2));
+      n.appendChild(build_table_from_fields(hubstatus));
+
+      break;
+
+    case "GetPortStatus":
+      var portstatus = new structs.Fields();
+      if (structs.parse_HubPortStatus(
+          portstatus, flat_data, 0, flat_data.length) === false) {
+        n.appendChild(text_div("failed to parse port status", 6, 15));
+        return;
+      }
+
+      n.appendChild(text_div("Port Status: " + type, 2));
+      n.appendChild(build_table_from_fields(portstatus));
       break;
   }
 }
@@ -323,11 +356,7 @@ function build_transfer_display(n, tr) {
   var out = tr.out;
   for (key in out) {
     if (key.substr(key.length - 2) === "_m") continue;
-    if (key === "setup" && typeof out[key] === "object") {
-      n.appendChild(text_div("Setup:", 2));
-      n.appendChild(build_table_from_fields(out.setup));
-      continue;
-    }
+    if (key === "setup" && typeof out[key] === "object") continue;
     if (key === "data" && Array.isArray(out[key])) continue;
     n.appendChild(text_div(key + ': ' + out[key]));
   }
@@ -480,6 +509,44 @@ function build_transaction_row(tr, height) {
   return row;
 }
 
+function decode_control_transfer_setup(setup, justdisp) {
+  // TODO: figure out how to do this cleaner than putting it all back together.
+  var requesttype_and_request =
+    setup.get_value_at(0) << 8 | setup.get_value_at(1) << 13 | setup.get_value_at(2) << 15 |
+    setup.get_value_at(3);
+
+  switch (setup.get_value("bmRequestType.type")) {
+    case 0:  // Standard
+      var display = structs.eStandardDeviceRequests[requesttype_and_request];
+      if (justdisp) return display;
+
+      return display;
+      break;
+
+    case 1:  // Class
+      var display = structs.eClassSpecificRequests[requesttype_and_request];
+      if (display === undefined)
+        display = structs.eClassSpecificHIDRequests[requesttype_and_request];
+      if (justdisp) return display;
+
+      switch (display) {
+        case "ClearHubFeature":
+        case "SetHubFeature":
+          setup.set_display_at(4, structs.eHubClassFeatureSelectorsHub[setup.get_value_at(4)]);
+          break;
+        case "ClearPortFeature":
+        case "SetPortFeature":
+          setup.set_display_at(4, structs.eHubClassFeatureSelectorsPort[setup.get_value_at(4)]);
+          break;
+      }
+
+      return display;
+      break;
+  }
+
+  return undefined;
+}
+
 function build_transfer_row(tr, height) {
   var row = document.createElement('div');
   row.className = 'usbbare-row';
@@ -493,18 +560,9 @@ function build_transfer_row(tr, height) {
   var desc_str = tr.typename;
   // "ControlTransfer (SET_ADDRESS)", etc.
   if (desc_str === "ControlTransfer" && tr.out.setup) {
-    var setup = tr.out.setup;
-    desc_str += setup.get_value_at(2) ? " \u2190 " : " \u2192 ";
-    // TODO: figure out how to do this cleaner than putting it all back together.
-    var requesttype_and_request =
-      setup.get_value_at(0) << 8 | setup.get_value_at(1) << 13 | setup.get_value_at(2) << 15 |
-      setup.get_value_at(3);
-    var display = structs.eStandardDeviceRequests[requesttype_and_request];
-    if (display !== undefined)
-      desc_str += " (" + display + ")";
-    display = structs.eClassSpecificHIDRequests[requesttype_and_request];
-    if (display !== undefined)
-      desc_str += " (" + display + ")";
+    desc_str += tr.out.setup.get_value_at(2) ? " \u2190 " : " \u2192 ";
+    var display = decode_control_transfer_setup(tr.out.setup, true);
+    if (display !== undefined) desc_str += " (" + display + ")";
   }
 
   desc.innerText = desc_str;
@@ -683,7 +741,7 @@ function build_nav_bar(cb) {
   var packets = ce('span', {marginRight: '2em', cursor: 'default'});
   var packets_orb = text_span('\u25CF', {position: 'relative', left: '-0.15em', top: '0.033em'});
   packets.appendChild(packets_orb);
-  packets.appendChild(text_span('packets', {marginRight: 0}));
+  packets.appendChild(text_span('packets', {marginRight: 0, borderBottom: '1px solid black'}));
 
   var transactions = ce('span', {marginRight: '2em', cursor: 'default'});
   var transactions_orb = text_span('\u25CF', {position: 'relative', left: '-0.15em', top: '0.033em'});
