@@ -192,7 +192,7 @@ enum {
 
 enum {
   DirectLine = 1;
-  Abstractmodem = 2;
+  AbstractModem = 2;
   Telephone = 3;
   MultiChannel = 4;
   CAPIControl = 5;
@@ -207,7 +207,7 @@ enum {
 
 enum {
   None = 0;
-  ATCommandsv25ter = 1;
+  ATCommandsV25ter = 1;
   ATCommandsPCCA101 = 2;
   ATCommandsPCCA101Wakeup = 3;
   ATCommandsGSM = 4;
@@ -215,7 +215,7 @@ enum {
   ATCommandsCDMA = 6;
   DefinedByCommandSetDescriptor = 254;
   VendorSpecificMSFTRNDIS = 255;
-} InterfaceSubclassCommunicationsProtocolAbstractmodem;
+} InterfaceSubclassCommunicationsProtocolAbstractModem;
 
 enum {
   EthernetEmulationEEM = 7;
@@ -259,7 +259,7 @@ enum {
 } InterfaceSubclassPrinterProtocolPrinter;
 
 enum {
-  RBCtypicallyFlash = 1;
+  RBCTypicallyFlash = 1;
   SFF8020iMMC2ATAPI = 2;
   QIC157 = 3;
   FloppyUFI = 4;
@@ -271,7 +271,7 @@ enum {
   ControlBulkInterrupt = 0;
   ControlBulk = 1;
   BulkOnly = 80;
-} InterfaceSubclassMassStorageProtocolRBCtypicallyFlash;
+} InterfaceSubclassMassStorageProtocolRBCTypicallyFlash;
 
 enum {
   ControlBulkInterrupt = 0;
@@ -290,7 +290,7 @@ enum {
 } InterfaceSubclassHub;
 
 enum {
-  FullSpeedorRootHub = 0;
+  FullSpeedOrRootHub = 0;
   SingleTT = 1;
   TTPerPort = 2;
 } InterfaceSubclassHubProtocolUnused;

@@ -27,8 +27,9 @@ function forAsyncEachLine(stream, line_callback, eof_callback) {
 }
 
 function cleanify_name(name, id) {
-  name = name.replace(/[ -][a-zA-Z]/g, function(m) { return m[1].toUpperCase(); });
-  name = name.replace(/[^a-zA-Z0-9]/g, '');
+  name = name.replace(/[^a-zA-Z0-9]+/g, ' ');
+  name = name.replace(/ +([^ ])/g, function(m, c) { return c.toUpperCase(); });
+  name = name.trim();
   if (name.length === 0) name = "Unknown" + id;
   return name;
 }
