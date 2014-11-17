@@ -563,7 +563,7 @@ function build_transfer_row(tr, height) {
   if (desc_str === "ControlTransfer" && tr.out.setup) {
     desc_str += tr.out.setup.get_value_at(2) ? " \u2190 " : " \u2192 ";
     var display = decode_control_transfer_setup(tr.out.setup, true);
-    if (display !== undefined) desc_str += " (" + display + ")";
+    if (display !== undefined) desc_str += display;
   }
 
   desc.innerText = desc_str;
