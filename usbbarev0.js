@@ -203,10 +203,9 @@ function disect_config_desc(n, flat_data) {
   var num_interfaces = descriptor.get_value("bNumInterfaces");
   var tlen = descriptor.get_value("wTotalLength");
   var pos = 0;
-  tlen -= descriptor.get_value("bLength");
   pos += descriptor.get_value("bLength");
 
-  for (var i = 0; i < num_interfaces; ++i) {
+  for (var i = 0; i < num_interfaces && pos < tlen; ++i) {
     if (flat_data[pos+1] !== 4) {  // INTERFACE
       n.appendChild(text_div("Skipped unknown descriptor: " + flat_data[pos+1], 6, 15));
       --i;
@@ -230,7 +229,7 @@ function disect_config_desc(n, flat_data) {
     pos += iface.get_value("bLength");
 
     var num_eps = iface.get_value("bNumEndpoints");
-    for (var j = 0; j < num_eps; ++j) {
+    for (var j = 0; j < num_eps && pos < tlen; ++j) {
       if (flat_data[pos+1] !== 5) {  // ENDPOINT
         n.appendChild(text_div("Skipped unknown descriptor: " + flat_data[pos+1], 6, 15));
         --j;
