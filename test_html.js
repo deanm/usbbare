@@ -3,7 +3,7 @@ var fs = require('fs');
 function roll_up_js(filename) {
   var src = fs.readFileSync(__dirname + '/' + filename, 'utf8');
   return src.replace(/require\('(.*?)'\);/g, function(match, p1) {
-    return '(function(exports) {' + roll_up_js(p1) + ' return exports;})({});';
+    return '(function(exports) {var module={exports:exports};' + roll_up_js(p1) + ' return module.exports;})({});';
   });
 }
 

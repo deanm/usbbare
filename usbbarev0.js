@@ -2,6 +2,7 @@ var decoder = require('./packet_decoder.js');
 var usb_machines = require('./usb_machines.js');
 var structs = require('./structs.js');
 var crclib  = require('./crc.js');
+var saveAs  = require('./FileSaver.min.js');
 
 function ce(name, styles) {
   var e = document.createElement(name);
@@ -1108,6 +1109,159 @@ function build_file_drop_area() {
     return stopprop(e);
   });
   document.body.appendChild(div);
+}
+
+// This is a bit hairy because the sender (host or device) must be reconstructed
+// from context, the information doesn't exist for which side the packet came from.
+var last_was_host = false;
+var next_is_dev = false;
+function decoded_packet_to_utg_entry(pp) {
+  switch (pp.pid_type) {
+    case 0:  // Special
+      last_was_host = true;
+      switch (pp.pid_name) {
+        case 2:
+          return "pid=SPLIT { sc=" + pp.SC + " hub_addr=" + pp.HubAddr +
+                 " port=" + pp.Port + " s=" + pp.S + " e=" + pp.EU + " et=" + pp.ET + " }\n";
+          break;
+        default:
+          return "; error handling special\n";
+      }
+      break;
+
+    // Token packets:
+    //   Sync PID ADDR ENDP CRC5 EOP
+    // Start of Frame Packets:
+    //   Sync PID Frame Number CRC5 EOP
+    case 1:
+      last_was_host = true;
+      next_is_dev = pp.pid_name === 2;
+      return "pid=" + kPidNameTable[pp.pid_name + 4] + " addr=" + pp.ADDR +
+             " endp=" + pp.EndPoint + " { }\n";
+
+    // Handshake packets:
+    //   Sync PID EOP
+    case 2:
+      return (last_was_host ? "expected_pid=" : "pid=") +
+             kPidNameTable[pp.pid_name + 8] + " { }\n";
+
+    // Data packets:
+    //   Sync PID Data CRC16 EOP
+    case 3:
+      var str = next_is_dev ? "expected_pid=" : "pid=";
+      str += kPidNameTable[pp.pid_name + 12] + " { data=(";
+      for (var i = 0, il = pp.data.length; i < il; ++i) {
+        var hex = pp.data[i].toString(16);
+        if (hex.length < 2) hex = "0" + hex;
+        str += " " + hex;
+      }
+      str += " ) }\n";
+      last_was_host = !next_is_dev;
+      return str;
+  }
+
+  return '; error\n';
+}
+
+function export_as_utg(rawdata) {
+  var i = 0, p = 0, l = rawdata.length;
+  var last_t = 0;
+  var t_base = 0;
+
+  var strs = [
+    "file_type=UPAS \n" +
+    "file_version=4\n" +
+    "file_mode=HOST   ; Emulates a HOST or DEVICE\n" +
+    "file_speed=HIGH\n"
+  ];
+
+  function process_block() {
+    while (true) {
+      if (p >= l) {
+        var blob = new Blob(strs, {type: "text/plain;charset=utf-8"});
+        saveAs(blob, "export.utg");
+        return;
+      }
+
+      var t = rawdata[p+2] | rawdata[p+3] << 8 | rawdata[p+4] << 16;
+      var plen = rawdata[p+5] | rawdata[p+6] << 8;
+
+      var pp = plen === 0 ? null : decoder.decode_packet(rawdata, p+7, plen);
+
+      var success =
+        pp !== null &&  // Check decode
+        (pp.CRC5 === undefined ||  // Check CRC5
+          ((plen === 3 && crclib.crc5_16bit(rawdata[p+8], rawdata[p+9]) === 6) ||
+           (plen === 4 && crclib.crc5_24bit(rawdata[p+8], rawdata[p+9], rawdata[p+10]) === 6))) &&
+        (pp.CRC16 === undefined ||  // Check CRC16
+          (plen >= 3 && crclib.crc16(rawdata, p+8, p+7+plen) === 0xb001));
+
+      if (success === true) {  // what to do on failure?
+        if (pp.pid_type !== 1 || pp.pid_name !== 1) {  // Ignore SOF
+          var str = decoded_packet_to_utg_entry(pp);
+          strs.push(str);
+        }
+      }
+
+      p += 7 + plen;
+      ++i;
+
+      if ((i & 0x3fff) === 0) {
+        setTimeout(process_block, 0);
+        return;
+      }
+    }
+  }
+
+  process_block();
+}
+
+function export_as_pkt(rawdata) {
+  var i = 0, p = 0, l = rawdata.length;
+  var last_t = 0;
+  var t_base = 0;
+
+  var strs = [ ];
+
+  function process_block() {
+    while (true) {
+      if (p >= l) {
+        var blob = new Blob(strs, {type: "text/plain;charset=utf-8"});
+        saveAs(blob, "export.pkt");
+        return;
+      }
+
+      var t = rawdata[p+2] | rawdata[p+3] << 8 | rawdata[p+4] << 16;
+      var plen = rawdata[p+5] | rawdata[p+6] << 8;
+
+      if (t < last_t) t_base += 0x1000000;  // 24 bit counter @60MHz rollover
+      last_t = t;
+
+      t = (t + t_base) / 60e6;  // 60MHz -> seconds.
+
+      var str = 'RawPacket data<';
+
+      for (var j = 0; j < plen; ++j) {
+        var hex = rawdata[p + 7 + j].toString(16);
+        if (hex.length < 2) hex = "0" + hex;
+        str += (j !== 0 ? " " : "") + hex;
+      }
+
+      str += '> speed<HS> time<' + t + '>\n';
+
+      strs.push(str);
+
+      p += 7 + plen;
+      ++i;
+
+      if ((i & 0x3fff) === 0) {
+        setTimeout(process_block, 0);
+        return;
+      }
+    }
+  }
+
+  process_block();
 }
 
 window.onload = function() {
