@@ -15,6 +15,8 @@ function Device(first_transfer_id) {
   this.configuration = -1;
 
   this.config_desc = [ ];
+
+  this.eps = null;
 }
 
 function flatten_chunked(data) {
@@ -27,6 +29,41 @@ function flatten_chunked(data) {
     p += data[i].length;
   }
   return flat;
+}
+
+function parse_ep_info(data, config_id, interface_id, interface_alt_id) {
+  var p = 0;
+  var l = data.length;
+
+  var cur_config = -1;
+  var cur_interface = -1;
+  var cur_interface_alt = -1;
+
+  var eps = [ ];
+
+  while (p < l) {
+    switch (data[p+1]) {
+      case 2:  // CONFIGURATION
+        num_interfaces = data[p+4];  // bNumInterfaces
+        cur_config = data[p+5];  // bConfigurationValue
+        break;
+      case 4:  // INTERFACE
+        cur_interface = data[p+2];  // bInterfaceNumber
+        cur_interface_alt = data[p+3];  // bAlternateSetting
+        break;
+      case 5:  // ENDPOINT
+        if (cur_config === config_id &&
+            cur_interface === interface_id &&
+            cur_interface_alt === interface_alt_id) {
+          eps.push({addr: data[p+2], attrs: data[p+3]});
+        }
+        break;
+    }
+
+    p += data[p];
+  }
+
+  return eps;
 }
 
 function DeviceTracker() {
@@ -71,6 +108,9 @@ function DeviceTracker() {
         // TODO: Support deconfigurtation?
         if (device.state !== "address") throw device.state;
         device.configuration = setup.get_value("wValue");
+        device.eps = parse_ep_info(device.config_desc,
+                                   device.configuration,
+                                   0, 0);
         device.state = "configured";
         break;
 
