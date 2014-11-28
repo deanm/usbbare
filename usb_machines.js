@@ -1,15 +1,18 @@
 var usb_states = require('./usb_states.js');
 
-// States:
-//   - Powered
-//   - Default
-//   - Address
-//   - Configured
 function Device(first_transfer_id) {
   this.first = first_transfer_id;
   this.addr = 0;
   this.max_packet_size = -1;
   this.strings = [ ];
+
+  // States:
+  //   - Attached / Powered (hardware level)
+  //   - Default
+  //   - Address
+  //   - Configured
+  this.state = "default";
+  this.configuration = -1;
 }
 
 function flatten_chunked(data) {
@@ -53,11 +56,20 @@ function DeviceTracker() {
 
     switch (requesttype_and_request) {
       case 0x0005:  // SET_ADDRESS
+        if (device.state !== "default") throw device.state;
         if (out.ADDR !== 0) throw "SET_ADDRESS when not 0.";
         device.addr = setup.get_value("wValue");
         if (device.addr in devices) throw "device already exists.";
+        device.state = "address";
         delete device_lookup[out.ADDR];
         device_lookup[device.addr] = device;
+        break;
+
+      case 0x0009:  // SET_CONFIGURATION
+        // TODO: Support deconfigurtation?
+        if (device.state !== "address") throw device.state;
+        device.configuration = setup.get_value("wValue");
+        device.state = "configured";
         break;
 
       case 0x8006:  // GET_DESCRIPTOR
