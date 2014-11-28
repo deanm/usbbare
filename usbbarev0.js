@@ -432,8 +432,8 @@ function build_packet_display(n, p) {
       build_bit_display("npid_type", 2, npid_type, pid_type^~npid_type, null),
       build_bit_display("npid_name", 2, npid_name, pid_name^~npid_name, null)]));
 
-  if (ppid_type === 1 || (ppid_type === 0 && ppid_name === 1)) {  // Token
-    if (ppid_type === 1 && ppid_name === 1) {  // SOF
+  if (pp.pid_type === 1 || (pp.pid_type === 0 && pp.pid_name === 1)) {  // Token
+    if (pp.pid_type === 1 && pp.pid_name === 1) {  // SOF
       n.appendChild(make_field("FrameNumber", 11,
         [make_bit_field_node("FrameNumber", pp.FrameNumber, to_bin_str(11, pp.FrameNumber))]));
     } else {
@@ -445,13 +445,13 @@ function build_packet_display(n, p) {
     var crc = crclib.crc5_16bit(rawdata[p+1], rawdata[p+2]);
     n.appendChild(make_field("CRC5", 4, [
         build_bit_display("CRC5", 5, pp.CRC5, crc^6, null)]));
-  } else if (ppid_type === 3) {  // Data
+  } else if (pp.pid_type === 3) {  // Data
     n.appendChild(make_field("DATA", 4,
       [make_bit_field_node("data length", pp.data.length, "...")]));
     var crc = crclib.crc16(rawdata, p+1, p+plen);
     n.appendChild(make_field("CRC16", 4, [
         build_bit_display("CRC16", 16, pp.CRC16, crc^0xb001, null)]));
-  } else if (ppid_type === 0 && ppid_name === 2) {  // SPLIT
+  } else if (pp.pid_type === 0 && pp.pid_name === 2) {  // SPLIT
     n.appendChild(make_field("HubAddr", 4, [
         build_bit_display("HubAddr", 7, pp.HubAddr, 0, null)]));
     n.appendChild(make_field("SC", 2, [
