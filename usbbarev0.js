@@ -510,7 +510,10 @@ function build_transaction_row(tr, height) {
   var desc = document.createElement('span');
   n.style.color = (tr.id & 1) ? "#090" : "#900";
   n.innerText = tr.id >> 1; ts.innerText = tr.t;
-  desc.innerText = tr.typename;
+  var tn = tr.typename;
+  var desc_str = (tn.substr(tn.length-2) === "In" ? "\u2190 " : "\u2192 ") +
+                  tr.out.ADDR + ':' + tr.out.EndPoint + ' ' + tn;
+  desc.innerText = desc_str;
   row.appendChild(n); row.appendChild(ts);
   row.appendChild(desc);
   return row;
