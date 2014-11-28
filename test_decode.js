@@ -1,5 +1,4 @@
 var fs = require('fs');
-var structs = require('./structs.js');
 var decoder = require('./packet_decoder.js');
 var usb_machines = require('./usb_machines.js');
 
@@ -31,31 +30,6 @@ function flatten(arr) {
 var transaction_machine = new usb_machines.TransactionMachine();
 
 var transfer_machine = new usb_machines.TransferMachine();
-
-/*
-function OnControlTransfer(addr, endp, setup, data) {
-  console.log("Control transfer: addr: " + addr + " endpoint: " + endp);
-  var bRequest = setup.get_value("bRequest");
-  console.log(setup.debug_string("  "));
-  data = flatten(data);
-  if (data.length > 0) console.log('    Data: ' + octets_to_hex_string(data));
-
-  switch (bRequest) {
-    case 6: // GET_DESCRIPTOR
-      var wvalue = setup.get_value("wValue");
-      var desctype = wvalue >> 8, descidx = wvalue & 0xff;
-      console.log(structs.eDescriptorTypes[desctype]);
-      var descriptor = new structs.Fields();
-      console.log(data.length);
-      if (structs.parse_StandardConfigurationDescriptor(descriptor, data, 0, data.length))
-        console.log(descriptor.debug_string("    "));
-      break;
-    default:
-      console.log("Unknown bRequest: " + bRequest);
-      break;
-  }
-}
-*/
 
 var transaction_id = 0;
 

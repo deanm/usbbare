@@ -1,4 +1,3 @@
-var structs = require('./structs.js');
 var usb_states = require('./usb_states.js');
 
 function TransactionMachine() {

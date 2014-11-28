@@ -1,6 +1,6 @@
 var decoder = require('./packet_decoder.js');
 var usb_machines = require('./usb_machines.js');
-var structs = require('./structs.js');
+var usb_structs = require('./usb_structs.js');
 var crclib  = require('./crc.js');
 var saveAs  = require('./FileSaver.min.js');
 
@@ -158,12 +158,12 @@ function look_up_interface_and_set_names(iface) {
   if (!iface) return;
   var iface1 = iface.get_display_at(5);
   if (!iface1) return;
-  var iface2 = structs["eInterfaceSubclass" + iface1];
+  var iface2 = usb_structs["eInterfaceSubclass" + iface1];
   if (!iface2) return;
   var iface3 = iface2[iface.get_value_at(6)];
   if (!iface3) return;
   iface.set_display_at(6, iface3);
-  var iface4 = structs["eInterfaceSubclass" + iface1 + "Protocol" + iface3];
+  var iface4 = usb_structs["eInterfaceSubclass" + iface1 + "Protocol" + iface3];
   if (!iface4) return;
   var iface5 = iface4[iface.get_value_at(7)];
   if (!iface5) return;
@@ -171,8 +171,8 @@ function look_up_interface_and_set_names(iface) {
 }
 
 function disect_device_desc(n, flat_data) {
-  var desc = new structs.Fields();
-  if (structs.parse_StandardDeviceDescriptor(
+  var desc = new usb_structs.Fields();
+  if (usb_structs.parse_StandardDeviceDescriptor(
       desc, flat_data, 0, flat_data.length) === false) {
     n.appendChild(text_div("failed to parse device desc", 6, 15));
     return;
@@ -190,8 +190,8 @@ function disect_device_desc(n, flat_data) {
 }
 
 function disect_config_desc(n, flat_data) {
-  var descriptor = new structs.Fields();
-  if (structs.parse_StandardConfigurationDescriptor(
+  var descriptor = new usb_structs.Fields();
+  if (usb_structs.parse_StandardConfigurationDescriptor(
       descriptor, flat_data, 0, flat_data.length) === false) {
     n.appendChild(text_div("failed to parse config descriptor", 6, 15));
     return;
@@ -213,8 +213,8 @@ function disect_config_desc(n, flat_data) {
       continue;
     }
 
-    var iface = new structs.Fields();
-    if (structs.parse_StandardInterfaceDescriptor(
+    var iface = new usb_structs.Fields();
+    if (usb_structs.parse_StandardInterfaceDescriptor(
         iface, flat_data, pos, flat_data.length) === false) {
       n.appendChild(text_div("failed to parse interface descriptor", 6, 15));
       return;
@@ -237,8 +237,8 @@ function disect_config_desc(n, flat_data) {
         continue;
       }
 
-      var ep = new structs.Fields();
-      if (structs.parse_StandardEndpointDescriptor(
+      var ep = new usb_structs.Fields();
+      if (usb_structs.parse_StandardEndpointDescriptor(
           ep, flat_data, pos, flat_data.length) === false) {
         n.appendChild(text_div("failed to parse endpoint descriptor", 6, 15));
         return;
@@ -291,7 +291,7 @@ function build_control_transfer_display(n, tr) {
       var desctype = wvalue >> 8, descidx = wvalue & 0xff;
 
       n.appendChild(text_div("Descriptor Type: " + desctype +
-                             " (" + structs.eDescriptorTypes[desctype] + ")"), 5);
+                             " (" + usb_structs.eDescriptorTypes[desctype] + ")"), 5);
       n.appendChild(text_div("Descriptor Index: " + descidx),  5);
 
       switch (desctype) {
@@ -315,14 +315,14 @@ function build_control_transfer_display(n, tr) {
           n.appendChild(text_div(ustr, 5, 15));
           break;
         default:
-          n.appendChild(text_div(structs.eDescriptorTypes[desctype], 2));
+          n.appendChild(text_div(usb_structs.eDescriptorTypes[desctype], 2));
           break;
       }
       break;
 
     case "GetHubStatus":
-      var hubstatus = new structs.Fields();
-      if (structs.parse_HubStatus(
+      var hubstatus = new usb_structs.Fields();
+      if (usb_structs.parse_HubStatus(
           hubstatus, flat_data, 0, flat_data.length) === false) {
         n.appendChild(text_div("failed to parse hub status", 6, 15));
         return;
@@ -334,8 +334,8 @@ function build_control_transfer_display(n, tr) {
       break;
 
     case "GetPortStatus":
-      var portstatus = new structs.Fields();
-      if (structs.parse_HubPortStatus(
+      var portstatus = new usb_structs.Fields();
+      if (usb_structs.parse_HubPortStatus(
           portstatus, flat_data, 0, flat_data.length) === false) {
         n.appendChild(text_div("failed to parse port status", 6, 15));
         return;
@@ -517,26 +517,26 @@ function decode_control_transfer_setup(setup, justdisp) {
 
   switch (setup.get_value("bmRequestType.type")) {
     case 0:  // Standard
-      var display = structs.eStandardDeviceRequests[requesttype_and_request];
+      var display = usb_structs.eStandardDeviceRequests[requesttype_and_request];
       if (justdisp) return display;
 
       return display;
       break;
 
     case 1:  // Class
-      var display = structs.eClassSpecificRequests[requesttype_and_request];
+      var display = usb_structs.eClassSpecificRequests[requesttype_and_request];
       if (display === undefined)
-        display = structs.eClassSpecificHIDRequests[requesttype_and_request];
+        display = usb_structs.eClassSpecificHIDRequests[requesttype_and_request];
       if (justdisp) return display;
 
       switch (display) {
         case "ClearHubFeature":
         case "SetHubFeature":
-          setup.set_display_at(4, structs.eHubClassFeatureSelectorsHub[setup.get_value_at(4)]);
+          setup.set_display_at(4, usb_structs.eHubClassFeatureSelectorsHub[setup.get_value_at(4)]);
           break;
         case "ClearPortFeature":
         case "SetPortFeature":
-          setup.set_display_at(4, structs.eHubClassFeatureSelectorsPort[setup.get_value_at(4)]);
+          setup.set_display_at(4, usb_structs.eHubClassFeatureSelectorsPort[setup.get_value_at(4)]);
           break;
       }
 
