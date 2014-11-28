@@ -55,7 +55,8 @@ function parse_ep_info(data, config_id, interface_id, interface_alt_id) {
         if (cur_config === config_id &&
             cur_interface === interface_id &&
             cur_interface_alt === interface_alt_id) {
-          eps.push({addr: data[p+2], attrs: data[p+3]});
+          eps.push({addr: data[p+2], attrs: data[p+3],
+                    max_size: data[p+4] | data[p+5] << 8});
         }
         break;
     }
