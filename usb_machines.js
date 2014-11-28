@@ -13,6 +13,8 @@ function Device(first_transfer_id) {
   //   - Configured
   this.state = "default";
   this.configuration = -1;
+
+  this.config_desc = [ ];
 }
 
 function flatten_chunked(data) {
@@ -103,6 +105,13 @@ function DeviceTracker() {
             device.max_packet_size = max_size;
 
           if (device.max_packet_size !== max_size) throw "xx";
+        }
+
+        if (desctype === 2 /* CONFIGURATION */) {
+          if (descidx !== 0) throw "xx";
+          if (device.state !== "address") throw device.state;
+          if (device.config_desc.length < flat_data.length)
+            device.config_desc = flat_data;
         }
 
         if (desctype === 3 /* STRING */) {
