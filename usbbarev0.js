@@ -748,7 +748,7 @@ function build_nav_bar(cb) {
   var packets = ce('span', {marginRight: '2em', cursor: 'default'});
   var packets_orb = text_span('\u25CF', {position: 'relative', left: '-0.15em', top: '0.033em'});
   packets.appendChild(packets_orb);
-  packets.appendChild(text_span('packets', {marginRight: 0, borderBottom: '1px solid black'}));
+  packets.appendChild(text_span('packets', {marginRight: 0}));
 
   var transactions = ce('span', {marginRight: '2em', cursor: 'default'});
   var transactions_orb = text_span('\u25CF', {position: 'relative', left: '-0.15em', top: '0.033em'});
@@ -758,9 +758,9 @@ function build_nav_bar(cb) {
   var transfers = ce('span', {marginRight: '2em', cursor: 'default'});
   var transfers_orb = text_span('\u25CF', {position: 'relative', left: '-0.15em', top: '0.033em'});
   transfers.appendChild(transfers_orb);
-  transfers.appendChild(text_span('transfers', {marginRight: 0, cursor: 'default'}));
+  transfers.appendChild(text_span('transfers', {marginRight: 0, borderBottom: '1px solid black'}));
 
-  var cur_view = 0;
+  var cur_view = 2;
 
   var link_nodes = [packets.lastChild, transactions.lastChild, transfers.lastChild];
 
@@ -882,7 +882,7 @@ function build_ui(
     [transaction_view, transaction_succ_view, transaction_fail_view],
     [transfer_view, transfer_succ_view, transfer_fail_view],
   ];
-  var cur_view_node = view_nodes[0][0];
+  var cur_view_node = view_nodes[2][0];
 
   var nav_bar = build_nav_bar(function(old_id, new_id, orb_id) {
     document.body.removeChild(cur_view_node.container);
