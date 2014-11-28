@@ -1,5 +1,120 @@
 var usb_states = require('./usb_states.js');
 
+// States:
+//   - Powered
+//   - Default
+//   - Address
+//   - Configured
+function Device(first_transfer_id) {
+  this.first = first_transfer_id;
+  this.addr = 0;
+  this.max_packet_size = -1;
+  this.strings = [ ];
+}
+
+function flatten_chunked(data) {
+  var total_len = 0;
+  for (var i = 0, il = data.length; i < il; i += 2) total_len += data[i].length;
+  var flat = new Uint8Array(total_len);
+  var p = 0;
+  for (var i = 0, il = data.length; i < il; i += 2) {
+    flat.set(data[i], p);
+    p += data[i].length;
+  }
+  return flat;
+}
+
+function DeviceTracker() {
+
+  var devices = [ ];
+  var device_lookup = [ ];  // Will use as a dictionary with numeric keys.
+
+  this.process_transfer = function(tr) {
+    var device = undefined;
+    var out = tr.out;
+
+    device = device_lookup[out.ADDR];
+
+    if (device === undefined && out.ADDR === 0) {
+      device = new Device(tr.id >> 1);
+      devices.push(device);
+      device_lookup[0] = device;
+    }
+
+    if (device === undefined) throw "device";
+
+    var setup = out.setup;
+    if (!setup) throw "setup";
+
+    // TODO: figure out how to do this cleaner than putting it all back together.
+    var requesttype_and_request =
+      setup.get_value_at(0) << 8 | setup.get_value_at(1) << 13 | setup.get_value_at(2) << 15 |
+      setup.get_value_at(3);
+
+    switch (requesttype_and_request) {
+      case 0x0005:  // SET_ADDRESS
+        if (out.ADDR !== 0) throw "SET_ADDRESS when not 0.";
+        device.addr = setup.get_value("wValue");
+        if (device.addr in devices) throw "device already exists.";
+        delete device_lookup[out.ADDR];
+        device_lookup[device.addr] = device;
+        break;
+
+      case 0x8006:  // GET_DESCRIPTOR
+        var wvalue = setup.get_value("wValue");
+        var desctype = wvalue >> 8, descidx = wvalue & 0xff;
+
+        var data = out.data;
+        if (data === undefined || data.length === 0) throw "xx";
+        var flat_data = flatten_chunked(data);
+
+        // 5.5.3 Control Transfer Packet Size Constraints
+        //   An endpoint for control transfers specifies the maximum data
+        //   payload size that the endpoint can accept from or transmit to the
+        //   bus. The allowable maximum control transfer data payload sizes for
+        //   full-speed devices is 8, 16, 32, or 64 bytes; for high-speed
+        //   devices, it is 64 bytes and for low-speed devices, it is 8 bytes.
+        //   ...
+        //   A Setup packet is always eight bytes. A control pipe (including
+        //   the Default Control Pipe) always uses its wMaxPacketSize value for
+        //   data payloads.
+        if (desctype === 1 /* DEVICE */) {
+          if (descidx !== 0) throw "xx";
+
+          // Even for low speed we should get at least the first 8 bytes.
+          // And of course bMaxPacketSize0 fits as the last of those.
+          if (flat_data.length < 8) throw flat_data.length + " < 8";
+
+          var max_size = flat_data[7];
+
+          if (device.max_packet_size === -1)
+            device.max_packet_size = max_size;
+
+          if (device.max_packet_size !== max_size) throw "xx";
+        }
+
+        if (desctype === 3 /* STRING */) {
+          if (descidx === 0) break;  // Ignore language
+
+          var ustr_len = flat_data[0] - 2;
+          var ustr = '';
+          for (var i = 0; i*2+3 < flat_data.length && i < ustr_len; ++i) {
+            ustr += String.fromCharCode(flat_data[i*2+2] | flat_data[i*2+3] << 8);
+          }
+
+          if (device.strings[descidx] === undefined ||
+              device.strings[descidx].length < ustr.length) {
+            device.strings[descidx] = ustr;
+          }
+        }
+
+        break;
+    }
+  };
+
+  this.devices = devices;
+}
+
 function TransactionMachine() {
   var this_ = this;
 
@@ -116,4 +231,5 @@ function TransferMachine() {
 try {
   exports.TransactionMachine = TransactionMachine;
   exports.TransferMachine = TransferMachine;
+  exports.DeviceTracker = DeviceTracker;
 } catch(e) { }

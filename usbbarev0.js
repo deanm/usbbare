@@ -1133,6 +1133,7 @@ function process_and_init(rawdata) {
 
   var transaction_machine = new usb_machines.TransactionMachine();
   var transfer_machine = new usb_machines.TransferMachine();
+  var device_tracker = new usb_machines.DeviceTracker();
 
   var loading = ce('div',
     {height: '100%', width: '100%',
@@ -1195,6 +1196,8 @@ function process_and_init(rawdata) {
               t: transactions[0].t /* TODO handle overflow */};
     transfers.push(tr);
     (success === true ? transfers_succ : transfers_fail).push(tr);
+
+    if (success === true) device_tracker.process_transfer(tr);
   };
 
   // Keep the browser happy by processing in chunks and keep the UI loop alive.
