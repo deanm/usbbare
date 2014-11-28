@@ -443,13 +443,18 @@ struct {
 } StandardEndpointDescriptorEndpointAddress;
 
 struct {
+  uint Bytes:11;
+  uint AdditionalTransactionsPerMicroframe:2;
+  uint Reserved:3;
+} StandardEndpointDescriptorMaxPacketSize;
+
+struct {
   uint bLength:8;
   uint bDescriptorType:8;
   StandardEndpointDescriptorEndpointAddress bEndpointAddress:8;
   StandardEndpointDescriptorAttributes bmAttributes:8;
-  uint wMaxPacketSize:8;
+  StandardEndpointDescriptorMaxPacketSize wMaxPacketSize:16;
   uint bInterval:8;
-  uint bLength:8;
 
 } StandardEndpointDescriptor;
 
