@@ -400,17 +400,22 @@ function build_bit_display(name, num_bits, val, badbits, dispstr) {
 function build_packet_display(n, p) {
   while (n.firstChild) n.removeChild(n.firstChild);
 
-  var pp = p.plen === 0 ? null : decoder.decode_packet(g_rawdata, p.p+7, p.plen);
+  var rawdata = g_reader.rawdata;
+  g_reader.seek_to_packet(p.p);
 
-  var d = pp;
-  if (d === null) {
+  var plen = g_reader.read_plen();
+  var p = g_reader.packet_pos();
+
+  var pp = plen === 0 ? null : decoder.decode_packet(rawdata, p, plen);
+
+  if (pp === null) {
     n.innerText = 'ERROR: Packet undecoded.';
     return;
   }
 
   //n.appendChild(text_div(JSON.stringify(d)));
 
-  var pid = g_rawdata[p.p+7];
+  var pid = rawdata[p];
 
   var pid_type = pid & 3;
   var pid_name = (pid >> 2) & 3;
@@ -427,41 +432,41 @@ function build_packet_display(n, p) {
       build_bit_display("npid_type", 2, npid_type, pid_type^~npid_type, null),
       build_bit_display("npid_name", 2, npid_name, pid_name^~npid_name, null)]));
 
-  if (d.pid_type === 1 || (d.pid_type === 0 && d.pid_name === 1)) {  // Token
-    if (d.pid_type === 1 && d.pid_name === 1) {  // SOF
+  if (ppid_type === 1 || (ppid_type === 0 && ppid_name === 1)) {  // Token
+    if (ppid_type === 1 && ppid_name === 1) {  // SOF
       n.appendChild(make_field("FrameNumber", 11,
-        [make_bit_field_node("FrameNumber", d.FrameNumber, to_bin_str(11, d.FrameNumber))]));
+        [make_bit_field_node("FrameNumber", pp.FrameNumber, to_bin_str(11, pp.FrameNumber))]));
     } else {
       n.appendChild(make_field("ADDR", 6,
-        [make_bit_field_node("ADDR", d.ADDR, to_bin_str(7, d.ADDR))]));
+        [make_bit_field_node("ADDR", pp.ADDR, to_bin_str(7, pp.ADDR))]));
       n.appendChild(make_field("EndPoint", 5,
-        [make_bit_field_node("EndPoint", d.EndPoint, to_bin_str(4, d.EndPoint))]));
+        [make_bit_field_node("EndPoint", pp.EndPoint, to_bin_str(4, pp.EndPoint))]));
     }
-    var crc = crclib.crc5_16bit(g_rawdata[p.p+8], g_rawdata[p.p+9]);
+    var crc = crclib.crc5_16bit(rawdata[p+1], rawdata[p+2]);
     n.appendChild(make_field("CRC5", 4, [
-        build_bit_display("CRC5", 5, d.CRC5, crc^6, null)]));
-  } else if (d.pid_type === 3) {  // Data
+        build_bit_display("CRC5", 5, pp.CRC5, crc^6, null)]));
+  } else if (ppid_type === 3) {  // Data
     n.appendChild(make_field("DATA", 4,
-      [make_bit_field_node("data length", d.data.length, "...")]));
-    var crc = crclib.crc16(g_rawdata, p.p+8, p.p+7+p.plen);
+      [make_bit_field_node("data length", pp.data.length, "...")]));
+    var crc = crclib.crc16(rawdata, p+1, p+plen);
     n.appendChild(make_field("CRC16", 4, [
-        build_bit_display("CRC16", 16, d.CRC16, crc^0xb001, null)]));
-  } else if (d.pid_type === 0 && d.pid_name === 2) {  // SPLIT
+        build_bit_display("CRC16", 16, pp.CRC16, crc^0xb001, null)]));
+  } else if (ppid_type === 0 && ppid_name === 2) {  // SPLIT
     n.appendChild(make_field("HubAddr", 4, [
-        build_bit_display("HubAddr", 7, d.HubAddr, 0, null)]));
+        build_bit_display("HubAddr", 7, pp.HubAddr, 0, null)]));
     n.appendChild(make_field("SC", 2, [
-        build_bit_display("SC", 1, d.SC, 0, d.SC ? "Complete" : "Start")]));
+        build_bit_display("SC", 1, pp.SC, 0, pp.SC ? "Complete" : "Start")]));
     n.appendChild(make_field("Port", 4, [
-        build_bit_display("Port", 7, d.Port, 0, null)]));
+        build_bit_display("Port", 7, pp.Port, 0, null)]));
     n.appendChild(make_field("S", 2, [
-        build_bit_display("S", 1, d.S, 0, d.S ? "Low Speed" : "Full Speed")]));
+        build_bit_display("S", 1, pp.S, 0, pp.S ? "Low Speed" : "Full Speed")]));
     n.appendChild(make_field("E/U", 2, [
-        build_bit_display("EU", 1, d.EU, 0, null)]));
+        build_bit_display("EU", 1, pp.EU, 0, null)]));
     n.appendChild(make_field("ET", 2, [
-        build_bit_display("ET", 2, d.ET, 0, ["Control", "Isochronous", "Bulk", "Interrupt"][d.ET])]));
-    var crc = crclib.crc5_24bit(g_rawdata[p.p+8], g_rawdata[p.p+9], g_rawdata[p.p+10]);
+        build_bit_display("ET", 2, pp.ET, 0, ["Control", "Isochronous", "Bulk", "Interrupt"][pp.ET])]));
+    var crc = crclib.crc5_24bit(rawdata[p+1], rawdata[p+2], rawdata[p+3]);
     n.appendChild(make_field("CRC5", 4, [
-        build_bit_display("CRC5", 5, d.CRC5, crc^6, null)]));
+        build_bit_display("CRC5", 5, pp.CRC5, crc^6, null)]));
   }
   //n.appendChild(text_div(p.transaction_ids));
 }
@@ -482,9 +487,11 @@ function build_packet_row(p, height) {
 
   var desc_str = p.f !== 0 ? "\u2691" : '';
 
-  var pp = p.plen === 0 ? null : decoder.decode_packet(g_rawdata, p.p+7, p.plen);
+  var rawdata = g_reader.rawdata;
+
+  var pp = p.plen === 0 ? null : decoder.decode_packet(rawdata, p.p, p.plen);
   if (pp !== null)
-    desc_str += decode_packet_to_display_string(pp, g_rawdata, p.p+7, p.plen);
+    desc_str += decode_packet_to_display_string(pp, rawdata, p.p, p.plen);
 
   desc.innerText = desc_str;
 
@@ -949,10 +956,114 @@ function decode_packet_to_display_string(dp, buf, p, plen) {
   return text;
 }
 
-var g_rawdata;
+function PacketReader(rawdata) {
+  this.isEOF = function() { };
+
+  // Reset to the first packet.
+  this.reset = function() { };
+
+  this.read_time = function() { };
+  this.read_flags = function() { };
+  // Return the length of just the USB packet (not including flags, etc).
+  this.read_plen = function() { };
+  // Return the position of just the USB packet, of length |plen|.
+  this.packet_pos = function() { };
+
+  // Move to the next packet.
+  this.advance = function() { };
+}
+
+// Minimal binary file format, no header, just a repeated sequence of:
+//   [ 2 bytes flags ] [ 3 bytes timestamp ] [ 2 bytes packet len ] [ data ]
+function MinBinPacketReader(rawdata) {
+  this.rawdata = rawdata;
+
+  var p = 0;
+  var len = rawdata.length;
+
+  this.isEOF = function() { return p >= len; };
+  this.reset = function() { p = 0; };
+
+  // Position is of the packet data (packet_pos()), so we have to go backwards from there.
+  this.seek_to_packet = function(np) {
+    p = np - 7;
+  };
+
+  this.read_time = function() {
+    return rawdata[p+2] | rawdata[p+3] << 8 | rawdata[p+4] << 16;
+  };
+
+  this.read_flags = function() {
+    return rawdata[p] | rawdata[p+1] << 8;
+  };
+
+  this.read_plen = function() {
+    return rawdata[p+5] | rawdata[p+6] << 8;
+  };
+
+  this.packet_pos = function() {
+    return p + 7;
+  };
+
+  this.advance = function() { p += this.read_plen() + 7; };
+
+  this.estimate_percentage = function() { return p / len; };
+}
+
+function make_packet_reader(rawdata) {
+  return new MinBinPacketReader(rawdata);
+}
+
+// Decode packets from a reader, calling |cb| for each packet.
+// Processes in blocks so that the UI loop can keep running, after a block
+// is finished the next one is queued on the runloop, so it is a bit "async".
+function block_decode_packets(blockmask, reader, cb) {
+  var rawdata = reader.rawdata;
+
+  var i = 0;
+
+  function process_block() {
+    while (true) {
+      if (reader.isEOF() === true) {
+        cb(true);
+        break;
+      }
+
+      var time = reader.read_time();
+      var flags = reader.read_flags();
+      var plen = reader.read_plen();
+      var p = reader.packet_pos();
+      var pp = plen === 0 ? null : decoder.decode_packet(rawdata, p, plen);
+
+      var success =
+        pp !== null &&  // Check decode
+        (pp.CRC5 === undefined ||  // Check CRC5
+          ((plen === 3 && crclib.crc5_16bit(rawdata[p+1], rawdata[p+2]) === 6) ||
+           (plen === 4 && crclib.crc5_24bit(rawdata[p+1], rawdata[p+2], rawdata[p+3]) === 6))) &&
+        (pp.CRC16 === undefined ||  // Check CRC16
+          (plen >= 3 && crclib.crc16(rawdata, p+1, p+plen) === 0xb001));
+
+      cb(false, i, i & blockmask, time, flags, plen, p, pp, success);
+
+      reader.advance();
+
+      ++i;
+
+      if ((i & blockmask) === 0) {
+        setTimeout(process_block, 0);
+        break;
+      }
+    }
+  }
+
+  process_block();
+}
+
+var g_reader;
 
 function process_and_init(rawdata) {
-  g_rawdata = rawdata;
+  var reader = make_packet_reader(rawdata);
+  g_reader = reader;
 
   var transaction_machine = new usb_machines.TransactionMachine();
   var transfer_machine = new usb_machines.TransferMachine();
@@ -1023,54 +1134,34 @@ function process_and_init(rawdata) {
   // Keep the browser happy by processing in chunks and keep the UI loop alive.
 
   console.log('Decoding packets and running state machines...');
-  var i = 0, p = 0, l = rawdata.length;
-  function process_block() {
-    loading.innerText = 'loading... ' + ((p / l * 100) | 0) + '%';
-    while (true) {
-      if (p >= l) {
-        console.log('...done');
-        document.body.removeChild(loading);
 
-        build_ui(packets, packets_succ, packets_fail,
-                 transactions, transactions_succ, transactions_fail,
-                 transfers, transfers_succ, transfers_fail);
-        return;
-      }
+  block_decode_packets(0x3fff, reader, function(eof, i, bi, time, flags, plen, p, pp, success) {
+    if (eof === true) {
+      console.log('...done');
+      document.body.removeChild(loading);
 
-      var plen = rawdata[p + 5] | rawdata[p + 6] << 8;
-      var pp = plen === 0 ? null : decoder.decode_packet(rawdata, p+7, plen);
-
-      var success =
-        pp !== null &&  // Check decode
-        (pp.CRC5 === undefined ||  // Check CRC5
-          ((plen === 3 && crclib.crc5_16bit(rawdata[p+8], rawdata[p+9]) === 6) ||
-           (plen === 4 && crclib.crc5_24bit(rawdata[p+8], rawdata[p+9], rawdata[p+10]) === 6))) &&
-        (pp.CRC16 === undefined ||  // Check CRC16
-          (plen >= 3 && crclib.crc16(rawdata, p+8, p+7+plen) === 0xb001));
-
-      var packet_id = i << 1 | (success === true ? 1 : 0);
-
-      var packet = {
-        id: packet_id,
-        f: rawdata[p] | rawdata[p+1] << 8,
-        t: rawdata[p+2] | rawdata[p+3] << 8 | rawdata[p+4] << 16,
-        p: p, plen: plen};
-      packets.push(packet);
-      (success === true ? packets_succ : packets_fail).push(packet);
-
-      if (success) transaction_machine.process_packet(pp, packet);
-
-      p += 7 + plen;
-      ++i;
-
-      if ((i & 0x3fff) === 0) {
-        setTimeout(process_block, 0);
-        return;
-      }
+      build_ui(packets, packets_succ, packets_fail,
+               transactions, transactions_succ, transactions_fail,
+               transfers, transfers_succ, transfers_fail);
+      return;
     }
-  }
 
-  process_block();
+    if (bi === 0) {
+      loading.innerText = 'loading... ' + ((reader.estimate_percentage() * 100) | 0) + '%';
+    }
+
+    var packet_id = i << 1 | (success === true ? 1 : 0);
+
+    var packet = {
+      id: packet_id,
+      f: flags,
+      t: time,
+      p: p, plen: plen};
+    packets.push(packet);
+    (success === true ? packets_succ : packets_fail).push(packet);
+
+    if (success) transaction_machine.process_packet(pp, packet);
+  });
 }
 
 function build_file_drop_area() {
@@ -1162,8 +1253,11 @@ function decoded_packet_to_utg_entry(pp) {
   return '; error\n';
 }
 
-function export_as_utg(rawdata) {
-  var i = 0, p = 0, l = rawdata.length;
+function export_as_utg(reader) {
+  reader.reset();
+
+  var rawdata = reader.rawdata;
+
   var last_t = 0;
   var t_base = 0;
 
@@ -1174,93 +1268,56 @@ function export_as_utg(rawdata) {
     "file_speed=HIGH\n"
   ];
 
-  function process_block() {
-    while (true) {
-      if (p >= l) {
-        var blob = new Blob(strs, {type: "text/plain;charset=utf-8"});
-        saveAs(blob, "export.utg");
-        return;
-      }
+  block_decode_packets(0x3fff, reader, function(eof, i, bi, t, flags, plen, p, pp, success) {
+    if (eof === true) {
+      var blob = new Blob(strs, {type: "text/plain;charset=utf-8"});
+      saveAs(blob, "export.utg");
+      return;
+    }
 
-      var t = rawdata[p+2] | rawdata[p+3] << 8 | rawdata[p+4] << 16;
-      var plen = rawdata[p+5] | rawdata[p+6] << 8;
-
-      var pp = plen === 0 ? null : decoder.decode_packet(rawdata, p+7, plen);
-
-      var success =
-        pp !== null &&  // Check decode
-        (pp.CRC5 === undefined ||  // Check CRC5
-          ((plen === 3 && crclib.crc5_16bit(rawdata[p+8], rawdata[p+9]) === 6) ||
-           (plen === 4 && crclib.crc5_24bit(rawdata[p+8], rawdata[p+9], rawdata[p+10]) === 6))) &&
-        (pp.CRC16 === undefined ||  // Check CRC16
-          (plen >= 3 && crclib.crc16(rawdata, p+8, p+7+plen) === 0xb001));
-
-      if (success === true) {  // what to do on failure?
-        if (pp.pid_type !== 1 || pp.pid_name !== 1) {  // Ignore SOF
-          var str = decoded_packet_to_utg_entry(pp);
-          strs.push(str);
-        }
-      }
-
-      p += 7 + plen;
-      ++i;
-
-      if ((i & 0x3fff) === 0) {
-        setTimeout(process_block, 0);
-        return;
+    if (success === true) {  // what to do on failure?
+      if (pp.pid_type !== 1 || pp.pid_name !== 1) {  // Ignore SOF
+        var str = decoded_packet_to_utg_entry(pp);
+        strs.push(str);
       }
     }
-  }
-
-  process_block();
+  });
 }
 
-function export_as_pkt(rawdata) {
-  var i = 0, p = 0, l = rawdata.length;
+function export_as_pkt(reader) {
+  reader.reset();
+
+  var rawdata = reader.rawdata;
+
   var last_t = 0;
   var t_base = 0;
 
   var strs = [ ];
 
-  function process_block() {
-    while (true) {
-      if (p >= l) {
-        var blob = new Blob(strs, {type: "text/plain;charset=utf-8"});
-        saveAs(blob, "export.pkt");
-        return;
-      }
-
-      var t = rawdata[p+2] | rawdata[p+3] << 8 | rawdata[p+4] << 16;
-      var plen = rawdata[p+5] | rawdata[p+6] << 8;
-
-      if (t < last_t) t_base += 0x1000000;  // 24 bit counter @60MHz rollover
-      last_t = t;
-
-      t = (t + t_base) / 60e6;  // 60MHz -> seconds.
-
-      var str = 'RawPacket data<';
-
-      for (var j = 0; j < plen; ++j) {
-        var hex = rawdata[p + 7 + j].toString(16);
-        if (hex.length < 2) hex = "0" + hex;
-        str += (j !== 0 ? " " : "") + hex;
-      }
-
-      str += '> speed<HS> time<' + t + '>\n';
-
-      strs.push(str);
-
-      p += 7 + plen;
-      ++i;
-
-      if ((i & 0x3fff) === 0) {
-        setTimeout(process_block, 0);
-        return;
-      }
+  block_decode_packets(0x3fff, reader, function(eof, i, bi, t, flags, plen, p, pp, success) {
+    if (eof === true) {
+      var blob = new Blob(strs, {type: "text/plain;charset=utf-8"});
+      saveAs(blob, "export.pkt");
+      return;
     }
-  }
 
-  process_block();
+    if (t < last_t) t_base += 0x1000000;  // 24 bit counter @60MHz rollover
+    last_t = t;
+
+    t = (t + t_base) / 60e6;  // 60MHz -> seconds.
+
+    var str = 'RawPacket data<';
+
+    for (var j = 0; j < plen; ++j) {
+      var hex = rawdata[p + j].toString(16);
+      if (hex.length < 2) hex = "0" + hex;
+      str += (j !== 0 ? " " : "") + hex;
+    }
+
+    str += '> speed<HS> time<' + t + '>\n';
+
+    strs.push(str);
+  });
 }
 
 window.onload = function() {
