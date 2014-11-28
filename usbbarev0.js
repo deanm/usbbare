@@ -1010,8 +1010,74 @@ function MinBinPacketReader(rawdata) {
   this.estimate_percentage = function() { return p / len; };
 }
 
+function PcapReader(rawdata) {
+  this.rawdata = rawdata;
+
+  var p = 0;
+  var len = rawdata.length;
+
+  if (!(len > 24 && rawdata[0] == 0xD4 &&
+                    rawdata[1] == 0xC3 &&
+                    rawdata[2] == 0xB2 &&
+                    rawdata[3] == 0xA1)) {
+    throw "Not a valid pcap file.";
+  }
+
+  p = 24;  // skip pcap header
+
+  this.isEOF = function() { return p >= len; };
+  this.reset = function() { p = 0; };
+
+  // Position is of the packet data (packet_pos()), so we have to go backwards from there.
+  this.seek_to_packet = function(np) {
+    p = np - 18;
+  };
+
+  // NOTE(deanm): A shift << 24 is fragile because this will be interpreted as
+  // signed.  in JavaScript 1 << 31 is -2147483648.  The last octet should be
+  // handled with add + mul to go into double size :(
+  function read_uint32_le(p) {
+    return (rawdata[p+0] | rawdata[p+1] << 8 | rawdata[p+2] << 16) + rawdata[p+3] * 0x1000000;
+  }
+
+  this.read_time = function() {
+    var ts_sec = read_uint32_le(p);
+    var ts_usec = read_uint32_le(p+4)
+    return ts_sec + ts_usec / 1e6;
+  };
+
+  this.read_flags = function() {
+    return rawdata[p+16] | rawdata[p+17] << 8;
+  };
+
+  this.read_plen = function() {
+    var incl_len = read_uint32_le(p+8);
+    var orig_len = read_uint32_le(p+12);
+    if (incl_len !== orig_len) throw "incl_len !== orig_len";
+    if (incl_len < 2) throw "incl_len < 2";
+    return incl_len - 2;
+  };
+
+  this.packet_pos = function() {
+    return p + 18;
+  };
+
+  this.advance = function() { p += this.read_plen() + 18; };
+
+  this.estimate_percentage = function() { return p / len; };
+}
+
 function make_packet_reader(rawdata) {
-  return new MinBinPacketReader(rawdata);
+  var readers = [ PcapReader, MinBinPacketReader ];
+
+  for (var i = 0, il = readers.length; i < il; ++i) {
+    var reader = readers[i];
+    try {
+      return new reader(rawdata);
+    } catch(e) { }
+  }
+
+  throw "No reader was able to handle file.";
 }
 
 // Decode packets from a reader, calling |cb| for each packet.
